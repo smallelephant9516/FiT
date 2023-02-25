@@ -2,7 +2,7 @@ from Model.ViT_model import ViT_3D
 from Model.MPP import MPP_3D
 from Data_loader import EMData
 from Data_loader.image_transformation import crop, add_noise_SNR, padding
-from Data_loader.load_data import load
+from Data_loader.load_data import load_new
 
 import torch
 import argparse
@@ -19,6 +19,7 @@ from datetime import datetime as dt
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1pitch/join_particles.star
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1p_fix/join_particles.star -n 10
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_short_test/join_particles.star -n 10
+# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven/join_particles.star -n 100
 
 def add_args(parser):
     parser.add_argument('particles', type=os.path.abspath, help='Input particles path (.star)')
@@ -57,51 +58,50 @@ def main(args):
     star_path = args.particles
     assert os.path.splitext(star_path)[1] == '.star'
 
-    # import the images
-    path=os.path.dirname(star_path)
-    type1_path=path+'/type1.mrcs'
-    type2_path=path+'/type2.mrcs'
-    with mrcfile.open(type1_path) as mrc:
-        type1 = mrc.data
-    with mrcfile.open(type2_path) as mrc:
-        type2 = mrc.data
-
-    # crop the image
-    set_height = args.cylinder_mask
-    set_width = args.center_mask
-    all_data_image = np.concatenate((type1, type2), axis=0)
-    all_data_image = crop(all_data_image, set_height, set_width)
-    print(np.shape(all_data_image))
-    all_data_image = np.concatenate((all_data_image,np.zeros((1,set_height,set_width))),axis=0)
-
-    # reset the image to the give filament shape
-    filmanet_meta=EMData.read_data_df(star_path)
-    dataframe=filmanet_meta.star2dataframe()
-    helicaldic, filament_index=filmanet_meta.extract_helical_select(dataframe)
-    filament_index=filmanet_meta.filament_index(helicaldic)
-
-
-    max_len=args.max_len
-    if max_len>0:
-        print('use max length to cut the filament: %s' % max_len)
-        filament_index_new = filmanet_meta
-        n_filaments_new = len(filament_index)
-        all_data, all_mask = padding(all_data_image, filament_index_new, max_len, set_height, set_width,
-                                     set_mask=args.ignore_padding_mask)
-    else:
-        max_len = max(map(len,filament_index))
-        n_filaments = len(filament_index)
-        all_data, all_mask = padding(all_data_image, filament_index, max_len, set_height, set_width,
-                                     set_mask=args.ignore_padding_mask)
-        print('The max length is: %s' % all_data.shape[1])
-
-    all_data = cv2.normalize(all_data, None, 0, 1, cv2.NORM_MINMAX)
-    all_data = add_noise_SNR(all_data, 0.005)
+    ## import the images
+    #path=os.path.dirname(star_path)
+    #type1_path=path+'/type1.mrcs'
+    #type2_path=path+'/type2.mrcs'
+    #with mrcfile.open(type1_path) as mrc:
+    #    type1 = mrc.data
+    #with mrcfile.open(type2_path) as mrc:
+    #    type2 = mrc.data
+#
+    ## crop the image
+    #set_height = args.cylinder_mask
+    #set_width = args.center_mask
+    #all_data_image = np.concatenate((type1, type2), axis=0)
+    #all_data_image = crop(all_data_image, set_height, set_width)
+    #print(np.shape(all_data_image))
+    #all_data_image = np.concatenate((all_data_image,np.zeros((1,set_height,set_width))),axis=0)
+#
+    ## reset the image to the give filament shape
+    #filmanet_meta=EMData.read_data_df(star_path)
+    #dataframe=filmanet_meta.star2dataframe()
+    #helicaldic, filament_index=filmanet_meta.extract_helical_select(dataframe)
+    #filament_index=filmanet_meta.filament_index(helicaldic)
+#
+#
+    #max_len=args.max_len
+    #if max_len>0:
+    #    print('use max length to cut the filament: %s' % max_len)
+    #    filament_index_new = filmanet_meta
+    #    n_filaments_new = len(filament_index)
+    #    all_data, all_mask = padding(all_data_image, filament_index_new, max_len, set_height, set_width,
+    #                                 set_mask=args.ignore_padding_mask)
+    #else:
+    #    max_len = max(map(len,filament_index))
+    #    n_filaments = len(filament_index)
+    #    all_data, all_mask = padding(all_data_image, filament_index, max_len, set_height, set_width,
+    #                                 set_mask=args.ignore_padding_mask)
+    #    print('The max length is: %s' % all_data.shape[1])
+#
+    #all_data = cv2.normalize(all_data, None, 0, 1, cv2.NORM_MINMAX)
+    #all_data = add_noise_SNR(all_data, 0.005)
     # all_data=cv2.normalize(all_data,None,0,1,cv2.NORM_MINMAX)
 
-
-    all_data=load(all_data)
-    n_data, length, height, width = all_data.shape
+    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=args.ignore_padding_mask)
+    n_data, length, height, width = all_data.shape()
     print(n_data, length, height, width)
 
     device = torch.device('cuda:1' if torch.cuda.is_available() is True else 'cpu')
@@ -146,10 +146,9 @@ def main(args):
 
     for i in range(args.num_epochs):
         total_loss = 0
-        for index, batch in data_batch:
+        for index, batch, mask in data_batch:
             images = batch.to(device)
-            mask = all_mask[index]
-            mask = torch.tensor(mask).to(device)
+            mask = mask.to(device)
             loss = mpp_trainer(images,mask)
             opt.zero_grad()
             loss.backward()
@@ -159,12 +158,11 @@ def main(args):
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value = torch.tensor([])
-    for index, batch in data_output:
+    for index, batch, mask in data_output:
         #import image
         image = batch.to(device)
+        mask = mask.to(device)
         #generate mask
-        mask = all_mask[index]
-        mask = torch.tensor(mask).to(device)
         model.matrix_mask(mask)
         # pass through the model
         mask_patches=model.mask_cls

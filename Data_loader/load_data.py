@@ -21,8 +21,13 @@ class load():
         return np.shape(self.data)
 
 class load_new():
-    def __init__(self,path,set_height,set_width,max_len,set_mask=True):
-        self.data,self.mask = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask)
+    def __init__(self,path,set_height,set_width,max_len,set_mask=True,simulation=True):
+        if simulation is True:
+            dataset = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask)
+        else:
+            dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask)
+        self.data = dataset.data
+        self.mask = dataset.mask
 
     def __getitem__(self, index):
         data = self.data[index]
@@ -33,6 +38,7 @@ class load_new():
         return len(self.data)
 
     def shape(self):
+        print(type(self.data))
         return np.shape(self.data)
 
 
@@ -63,7 +69,7 @@ class load_simulation():
             print('use max length to cut the filament: %s' % max_len)
             filament_index_new = filmanet_meta
             n_filaments_new = len(filament_index)
-            all_data, all_mask = padding(all_data_image, filament_index_new, max_len, set_height, set_width,
+            self.data, self.mask = padding(all_data_image, filament_index_new, max_len, set_height, set_width,
                                          set_mask=set_mask)
         else:
             max_len = max(map(len,filament_index))
@@ -77,4 +83,11 @@ class load_simulation():
         # all_data=cv2.normalize(all_data,None,0,1,cv2.NORM_MINMAX)
 
     def __getitem__(self):
-        return self.data, self.mask
+        data = self.data
+        mask = self.mask
+        return data,mask
+
+
+class load_mrcs():
+    def __init__(self,path,set_height,set_width,max_len,set_mask=True):
+        folder = os.path.dirname(path)
