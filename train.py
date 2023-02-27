@@ -28,8 +28,9 @@ def add_args(parser):
 
 
     group = parser.add_argument_group('Data loader parameters')
-    group.add_argument('--cylinder_mask', type=int, default=256,help='mask around the helix')
-    group.add_argument('--center_mask', type=int, default=32, help='mask around the helix')
+    group.add_argument('--cylinder_mask', type=int, default=64,help='mask around the helix')
+    group.add_argument('--center_mask', type=int, default=192, help='mask around the helix')
+    parser.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file",)
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
@@ -58,49 +59,8 @@ def main(args):
     star_path = args.particles
     assert os.path.splitext(star_path)[1] == '.star'
 
-    ## import the images
-    #path=os.path.dirname(star_path)
-    #type1_path=path+'/type1.mrcs'
-    #type2_path=path+'/type2.mrcs'
-    #with mrcfile.open(type1_path) as mrc:
-    #    type1 = mrc.data
-    #with mrcfile.open(type2_path) as mrc:
-    #    type2 = mrc.data
-#
-    ## crop the image
-    #set_height = args.cylinder_mask
-    #set_width = args.center_mask
-    #all_data_image = np.concatenate((type1, type2), axis=0)
-    #all_data_image = crop(all_data_image, set_height, set_width)
-    #print(np.shape(all_data_image))
-    #all_data_image = np.concatenate((all_data_image,np.zeros((1,set_height,set_width))),axis=0)
-#
-    ## reset the image to the give filament shape
-    #filmanet_meta=EMData.read_data_df(star_path)
-    #dataframe=filmanet_meta.star2dataframe()
-    #helicaldic, filament_index=filmanet_meta.extract_helical_select(dataframe)
-    #filament_index=filmanet_meta.filament_index(helicaldic)
-#
-#
-    #max_len=args.max_len
-    #if max_len>0:
-    #    print('use max length to cut the filament: %s' % max_len)
-    #    filament_index_new = filmanet_meta
-    #    n_filaments_new = len(filament_index)
-    #    all_data, all_mask = padding(all_data_image, filament_index_new, max_len, set_height, set_width,
-    #                                 set_mask=args.ignore_padding_mask)
-    #else:
-    #    max_len = max(map(len,filament_index))
-    #    n_filaments = len(filament_index)
-    #    all_data, all_mask = padding(all_data_image, filament_index, max_len, set_height, set_width,
-    #                                 set_mask=args.ignore_padding_mask)
-    #    print('The max length is: %s' % all_data.shape[1])
-#
-    #all_data = cv2.normalize(all_data, None, 0, 1, cv2.NORM_MINMAX)
-    #all_data = add_noise_SNR(all_data, 0.005)
-    # all_data=cv2.normalize(all_data,None,0,1,cv2.NORM_MINMAX)
-
-    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=args.ignore_padding_mask)
+    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=args.ignore_padding_mask,
+                      datadir=args.datadir)
     n_data, length, height, width = all_data.shape()
     print(n_data, length, height, width)
 
