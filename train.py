@@ -16,21 +16,25 @@ import cv2
 import numpy as np
 from datetime import datetime as dt
 
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1pitch/join_particles.star
+# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1pitch/join_particles.star --simulation -n 100 --cylinder_mask 256 --center_mask 32 --image_patch_size 32
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1p_fix/join_particles.star -n 10
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_short_test/join_particles.star -n 10
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven/join_particles.star -n 100
+# python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 50
 
 def add_args(parser):
     parser.add_argument('particles', type=os.path.abspath, help='Input particles path (.star)')
-    parser.add_argument('--dim', type=int, default=256, help='Dimension of latent variable')
-    parser.add_argument('--max_len', type=int, default=0, help='Number of segments in a filament')
+    parser.add_argument('--output', type=os.path.abspath, help='The place for output the star file')
+    parser.add_argument('--dim', type=int, default=128, help='Dimension of latent variable')
+    parser.add_argument('--max_len', type=int, default=0,
+                        help='Number of segments in a filament, 0 means using the max length')
 
 
     group = parser.add_argument_group('Data loader parameters')
     group.add_argument('--cylinder_mask', type=int, default=64,help='mask around the helix')
-    group.add_argument('--center_mask', type=int, default=192, help='mask around the helix')
-    parser.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file",)
+    group.add_argument('--center_mask', type=int, default=128, help='mask around the helix')
+    group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
+    group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
@@ -60,7 +64,7 @@ def main(args):
     assert os.path.splitext(star_path)[1] == '.star'
 
     all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=args.ignore_padding_mask,
-                      datadir=args.datadir)
+                      datadir=args.datadir,simulation=args.simulation)
     n_data, length, height, width = all_data.shape()
     print(n_data, length, height, width)
 
@@ -104,7 +108,7 @@ def main(args):
     t2=dt.now()
     print('passed time for setting up parameter is {}'.format((t2-t1)))
 
-    for i in range(args.num_epochs):
+    for epoch in range(args.num_epochs):
         total_loss = 0
         for index, batch, mask in data_batch:
             images = batch.to(device)
@@ -114,7 +118,7 @@ def main(args):
             loss.backward()
             opt.step()
             total_loss += loss.item() / (length * height)
-        print(dt.now()-t1,'In iteration {}, the total loss is {:.4f}'.format(i, total_loss))
+        print(dt.now()-t1,'In iteration {}, the total loss is {:.4f}'.format(epoch, total_loss))
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value = torch.tensor([])
@@ -133,27 +137,38 @@ def main(args):
         all_value = torch.cat((all_value, value), 0)
     print(all_value.shape)
 
-
-    import umap
-    from sklearn.decomposition import PCA
-    from sklearn.cluster import KMeans
-    import matplotlib.pyplot as plt
-
     all_value_np=all_value.detach().numpy()
+    if args.output is not None:
+        save_dir = args.output
+    else:
+        save_dir = os.path.dirname(args.particles)
+    print('The output vector is saved to %s' % save_dir)
+    np.save(save_dir+'/saved_embedding_{}.npy'.format(epoch), all_value_np)
 
-    #for i in range(len(all_value_np)):
-    #    print(i, np.isnan(all_value_np[i].mean()), np.isinf(all_value_np[i].mean()))
-    #pca = PCA(n_components=3)
-    #data_pca=pca.fit_transform(all_value_np)
-    #print(data_pca[0],data_pca[1])
 
-    fit = umap.UMAP(n_neighbors=15)
-    data_umap = fit.fit_transform(all_value_np)
-
-    #plt.figure(figsize=(10,10))
-    label=[0]*50+[1]*50
-    plt.scatter(data_umap[:,0],data_umap[:,1],c=label)
-    plt.show()
+#    import umap
+#    from sklearn.decomposition import PCA
+#    from sklearn.cluster import KMeans
+#    import matplotlib.pyplot as plt
+#
+#
+#    #for i in range(len(all_value_np)):
+#    #    print(i, np.isnan(all_value_np[i].mean()), np.isinf(all_value_np[i].mean()))
+#    #pca = PCA(n_components=3)
+#    #data_pca=pca.fit_transform(all_value_np)
+#    #print(data_pca[0],data_pca[1])
+#
+#    fit = umap.UMAP(n_neighbors=15)
+#    data_umap = fit.fit_transform(all_value_np)
+#    print('fit success')
+#
+#    plt.figure(figsize=(5,5))
+#    print('fit success')
+#    label=[0]*50+[1]*50
+#    print('fit success')
+#    plt.scatter(data_umap[:,0],data_umap[:,1],c=label)
+#    print('fit success')
+#    plt.show()
 
 
 if __name__ == '__main__':

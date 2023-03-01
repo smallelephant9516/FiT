@@ -60,6 +60,8 @@ class read_data_df():
         if relion31:
             count = 0
             for star_line in open(self.file).readlines():
+                if star_line.find("data_") == 0:
+                    meta_start = count
                 if star_line.find("data_particles") == 0:
                     break
                 else:
