@@ -70,6 +70,18 @@ def iht2_center(img):
     img /= (img.shape[-1] * img.shape[-2])
     return img.real - img.imag
 
+# circular mask
+def get_circular_mask(data, R=None):
+    n, m = data.shape[1:]
+    if R:
+        radius = R
+    else:
+        radius = min(n, m) / 2
+    y_grid, x_grid = np.ogrid[:n, :m]
+    center = np.array([n / 2, m / 2])
+    dist = np.sqrt((center[0] - y_grid) ** 2 + (center[1] - x_grid) ** 2)
+    mask = dist <= radius
+    return mask
 
 def get_circular_mask_single(data, R=None):
     n, m = data.shape[:]
@@ -83,6 +95,14 @@ def get_circular_mask_single(data, R=None):
     mask = dist <= radius
     return mask
 
+def low_pass_filter(image, ang, apix=1):
+    D, _ = np.shape(image)
+    R_pix = int(np.ceil(D / (ang / apix)))
+    image_fft = ht2_center(image)
+    mask = get_circular_mask_single(image_fft, R=R_pix)
+    new_image_fft = np.zeros((D, D))
+    new_image_fft[mask] = image_fft[mask]
+    return iht2_center(new_image_fft)
 
 def compute_ctf_first(freqs, dfu, dfv, dfang, volt, cs, w, phase_shift=0, bfactor=None, apix=1):
     '''
@@ -161,26 +181,12 @@ def ctf_correction(all_data_image, dataframe, Apix, mode='first'):
             all_image_pf[i] = image_pf
     return all_image_pf
 
+def low_pass_filter_images(images, ang, apix=1):
+    print('doing low pass filter on the images')
+    lowpass_images=np.zeros(images.shape)
+    for i in range(len(images)):
+        lowpass_images[i] = low_pass_filter(images[i],ang,apix)
+        if i % 10000 == 0:
+            print(i)
+    return lowpass_images
 
-def low_pass_filter(image, ang, apix=1):
-    D, _ = np.shape(image)
-    R_pix = int(np.ceil(D / (ang / apix)))
-    image_fft = ht2_center(image)
-    mask = get_circular_mask(image_fft, R=R_pix)
-    new_image_fft = np.zeros((D, D))
-    new_image_fft[mask] = image_fft[mask]
-    return iht2_center(new_image_fft)
-
-
-# circular mask
-def get_circular_mask(data, R=None):
-    n, m = data.shape[1:]
-    if R:
-        radius = R
-    else:
-        radius = min(n, m) / 2
-    y_grid, x_grid = np.ogrid[:n, :m]
-    center = np.array([n / 2, m / 2])
-    dist = np.sqrt((center[0] - y_grid) ** 2 + (center[1] - x_grid) ** 2)
-    mask = dist <= radius
-    return mask

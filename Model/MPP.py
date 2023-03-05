@@ -29,6 +29,17 @@ def get_mask_subset_with_prob(patched_input, prob):
     new_mask.scatter_(1, sampled_indices, 1)
     return new_mask.bool()
 
+def create_random_patches(input, mask):
+    b, n, _ = input.shape
+    _, n_mask = mask.shape
+    multi = n // n_mask
+    rand_patch_id=torch.zeros((b,n),dtype=torch.int64)
+    for i in range(b):
+        lst=mask[i]
+        max_id=len(lst[lst==1])
+        # can be modified later for padding mask in the middle
+        rand_patch_id[i,:]=torch.randint(0,int(max_id*multi),(n,))
+    return rand_patch_id
 
 class Reshape_sequence_image(nn.Module):
     def __init__(
@@ -77,8 +88,8 @@ class MPPLoss(nn.Module):
 
         # reshape target to patches
         # target = target.clamp(max = mpv) # clamp just in case
-        loss = F.cross_entropy(predicted_patches[mask], target[mask])
-        # loss = F.mse_loss(predicted_patches[mask], target[mask])
+        #loss = F.cross_entropy(predicted_patches[mask], target[mask])
+        loss = F.mse_loss(predicted_patches[mask], target[mask])
         return loss
 
 
@@ -251,9 +262,11 @@ class MPP_3D(nn.Module):
                                            input.shape[1],
                                            (input.shape[0], input.shape[1]),
                                            device=input.device)
+            random_patches = create_random_patches(input, padding_mask).to(mask.device)
             randomized_input = masked_input[
                 torch.arange(masked_input.shape[0]).unsqueeze(-1),
                 random_patches]
+
             masked_input[bool_random_patch_prob] = randomized_input[
                 bool_random_patch_prob]
 

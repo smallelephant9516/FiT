@@ -59,7 +59,7 @@ class Attention(nn.Module):
             nn.Linear(inner_dim, dim),
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
-        self.mask=1
+        self.mask=torch.ones((1))
 
     def forward(self, x):
 
@@ -67,6 +67,7 @@ class Attention(nn.Module):
         #print('final padding mask',self.mask[0,0,0,:])
         mask = (1-self.mask)*(-1e9)
         mask = mask.to(torch.float32)
+        mask = mask.to(x.device)
         #print('final padding mask', mask[0, 0, 0, :])
 
         qkv = self.to_qkv(x).chunk(3, dim=-1)
@@ -102,8 +103,9 @@ class Transformer(nn.Module):
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
             ]))
 
-    def forward(self, x, mask):
-        self.att_layer.add_mask(mask)
+    def forward(self, x, mask=None):
+        if mask is not None:
+            self.att_layer.add_mask(mask)
         for attn, ff in self.layers:
             x = attn(x) + x
             x = ff(x) + x
@@ -113,10 +115,10 @@ class Transformer(nn.Module):
 
 
 class ViT(nn.Module):
-    def __init__(self, *, image_height, image_width, patch_size, num_classes, dim, depth, heads, mlp_dim, pool='cls',
+    def __init__(self, *, image_height, image_width, image_patch_size, num_classes, dim, depth, heads, mlp_dim, pool='cls',
                  dim_head=64, dropout=0., emb_dropout=0.):
         super().__init__()
-        patch_height, patch_width = pair(patch_size)
+        patch_height, patch_width = pair(image_patch_size)
 
         assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Image dimensions must be divisible by the patch size.'
 
@@ -194,6 +196,8 @@ class ViT_3D(nn.Module):
             nn.Linear(patch_dim, dim),
             nn.LayerNorm(dim),
         )
+        phase=nn.Parameter(torch.randn((1)))
+        phase_dim = phase.repeat((1,dim))
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))

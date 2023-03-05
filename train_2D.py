@@ -1,7 +1,6 @@
-from Model.ViT_model import ViT_3D
-from Model.MPP import MPP_3D
+from Model.ViT_model import ViT
+from Model.MPP import MPP
 from Data_loader import EMData
-from Data_loader.image_transformation import crop, add_noise_SNR, padding
 from Data_loader.load_data import load_new
 
 import torch
@@ -9,17 +8,13 @@ import argparse
 import os, sys
 from torch.utils.data import DataLoader
 
-
-
-import mrcfile
-import cv2
 import numpy as np
 from datetime import datetime as dt
 
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1pitch/join_particles.star --simulation -n 100 --cylinder_mask 256 --center_mask 32 --image_patch_size 32
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1p_fix/join_particles.star -n 10
 # python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_short_test/join_particles.star -n 10
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven/join_particles.star -n 100 --simulation
+# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven/join_particles.star -n 100
 # python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100
 
 def add_args(parser):
@@ -43,13 +38,13 @@ def add_args(parser):
     group.add_argument('--depth', type=int, default=3, help='number of layers')
     group.add_argument('--image_patch_size', type=int, default=32, help='image patch size (pix)')
     group.add_argument('--length_patch_size', type=int, default=1, help='length patch size (pix)')
-    group.add_argument('--lr', type=float, default=3e-5, help='Learning rate in Adam optimizer (default: %(default)s)')
+    group.add_argument('--lr', type=float, default=2e-4, help='Learning rate in Adam optimizer (default: %(default)s)')
     group.add_argument('--ignore_padding_mask', action='store_false', help='Parallelize training across all detected GPUs')
 
     group = parser.add_argument_group('Mask Patch parameter')
-    group.add_argument('--mask_prob', type=float, default=0.15, help='probability of using token in masked prediction task')
-    group.add_argument('--random_patch_prob', type=float, default=0.3, help='probability of randomly replacing a token being used for mpp')
-    group.add_argument('--replace_prob', type=float, default=0.5, help='probability of replacing a token being used for mpp with the mask token')
+    group.add_argument('--mask_prob', type=float, default=0.15, help='probablility to mask the patch')
+    group.add_argument('--random_patch_prob', type=float, default=0.3, help='probablility to replace the token with anthoer')
+    group.add_argument('--replace_prob', type=float, default=0.5, help='probablility to mask the patch')
     group.add_argument('--augment_prob', type=float, default=0.5, help='probablility to do augmentation transforming to the image')
 
     return parser
@@ -64,42 +59,36 @@ def main(args):
     assert os.path.splitext(star_path)[1] == '.star'
 
     all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=args.ignore_padding_mask,
-                      datadir=args.datadir,simulation=args.simulation)
-    n_data, length, height, width = all_data.shape()
-    print(n_data, length, height, width)
+                      datadir=args.datadir,simulation=args.simulation).get_particles()
+    n_data, height, width = all_data.shape
+    print(n_data, height, width)
 
     device = torch.device('cuda:1' if torch.cuda.is_available() is True else 'cpu')
 
     # check the dimension of the height, width and length
     assert height % args.image_patch_size == 0
     assert width % args.image_patch_size == 0
-    assert length % args.length_patch_size == 0
 
-    model = ViT_3D(
+    model = ViT(
         image_height = height,
         image_width = width,
         image_patch_size=args.image_patch_size,
-        length = length,
-        length_patch_size = args.length_patch_size,
         num_classes=1000,
         dim=args.dim,
         depth=args.depth,
         heads=args.heads,
-        batch_size=args.batch_size,
         mlp_dim=2048,
         dropout=0.1,
         emb_dropout=0.1
     )
     model.to(device)
-    mpp_trainer = MPP_3D(
+    mpp_trainer = MPP(
         transformer=model,
         patch_size=args.image_patch_size,
-        length_patch_size = args.length_patch_size,
         dim=args.dim,
         mask_prob=args.mask_prob,          # probability of using token in masked prediction task
         random_patch_prob=args.random_patch_prob,  # probability of randomly replacing a token being used for mpp
         replace_prob=args.replace_prob,       # probability of replacing a token being used for mpp with the mask token
-        augment_prob=args.augment_prob
     )
     mpp_trainer.to(device)
     opt = torch.optim.Adam(mpp_trainer.parameters(), lr=args.lr)
@@ -110,39 +99,35 @@ def main(args):
 
     for epoch in range(args.num_epochs):
         total_loss = 0
-        for index, batch, mask in data_batch:
+        for batch in data_batch:
             images = batch.to(device)
-            mask = mask.to(device)
-            loss = mpp_trainer(images,mask)
+            loss = mpp_trainer(images)
             opt.zero_grad()
             loss.backward()
             opt.step()
-            total_loss += loss.item() / (length * height)
+            total_loss += loss.item() / (width * height)
         print(dt.now()-t1,'In iteration {}, the total loss is {:.4f}'.format(epoch, total_loss))
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
-    all_value_np = np.zeros((n_data, args.dim))
-    output_mode='average'
-    for i, (index, batch, mask) in enumerate(data_output):
+    all_value = torch.tensor([])
+    for batch in data_output:
         #import image
         image = batch.to(device)
-        mask = mask.to(device)
-        #generate mask
-        model.matrix_mask(mask)
-        # pass through the model
-        mask_patches=model.mask_cls
-        value_hidden = model.forward(image)
-        value_hidden[mask_patches == 0, :] = 0
-        if output_mode == 'average':
-            value_sum = value_hidden[:, 1:, :].sum(axis=1).detach().cpu().numpy()
-            # print(value_sum.T.shape)
-            n_index = np.array(list(map(lambda x: len(x[x == 1]), mask)))
-            # print(1/n_index)
-            value = ((1 / n_index) * value_sum.T).T
-        elif output_mode =='cls':
-            value = value_hidden[:, 0, :].detach().cpu().numpy()
-        all_value_np[i*args.batch_size:(i+1)*args.batch_size,:] = value
-    print(all_value_np.shape)
+        value_hidden = model.forward(image).detach().cpu()
+        all_value = torch.cat((all_value, value_hidden), 0)
+    print(all_value.shape)
+    all_value_np=all_value.detach().numpy()
+
+    filament = EMData.read_data_df(args.particles)
+    dataframe = filament.star2dataframe()
+    helicaldic, filament_id = filament.extract_helical_select(dataframe)
+    filament_index = filament.filament_index(helicaldic)
+
+    all_filament_np=[]
+    for i in range(len(filament_index)):
+        lst=filament_index[i]
+        all_filament_np.append(all_value_np[lst].mean(axis=0))
+    all_filament_np=np.array(all_filament_np)
 
 
     if args.output is not None:
@@ -150,33 +135,7 @@ def main(args):
     else:
         save_dir = os.path.dirname(args.particles)
     print('The output vector is saved to %s' % save_dir)
-    np.save(save_dir+'/saved_embedding_{}.npy'.format(epoch), all_value_np)
-
-
-#    import umap
-#    from sklearn.decomposition import PCA
-#    from sklearn.cluster import KMeans
-#    import matplotlib.pyplot as plt
-#
-#
-#    #for i in range(len(all_value_np)):
-#    #    print(i, np.isnan(all_value_np[i].mean()), np.isinf(all_value_np[i].mean()))
-#    #pca = PCA(n_components=3)
-#    #data_pca=pca.fit_transform(all_value_np)
-#    #print(data_pca[0],data_pca[1])
-#
-#    fit = umap.UMAP(n_neighbors=15)
-#    data_umap = fit.fit_transform(all_value_np)
-#    print('fit success')
-#
-#    plt.figure(figsize=(5,5))
-#    print('fit success')
-#    label=[0]*50+[1]*50
-#    print('fit success')
-#    plt.scatter(data_umap[:,0],data_umap[:,1],c=label)
-#    print('fit success')
-#    plt.show()
-
+    np.save(save_dir+'/saved_particles_embedding_{}.npy'.format(epoch), all_filament_np)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
