@@ -11,12 +11,6 @@ from torch.utils.data import DataLoader
 import numpy as np
 from datetime import datetime as dt
 
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1pitch/join_particles.star --simulation -n 100 --cylinder_mask 256 --center_mask 32 --image_patch_size 32
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1p_fix/join_particles.star -n 10
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_short_test/join_particles.star -n 10
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven/join_particles.star -n 100
-# python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100
-
 def add_args(parser):
     parser.add_argument('particles', type=os.path.abspath, help='Input particles path (.star)')
     parser.add_argument('--output', type=os.path.abspath, help='The place for output the star file')
@@ -39,7 +33,7 @@ def add_args(parser):
     group.add_argument('--image_patch_size', type=int, default=32, help='image patch size (pix)')
     group.add_argument('--length_patch_size', type=int, default=1, help='length patch size (pix)')
     group.add_argument('--lr', type=float, default=2e-4, help='Learning rate in Adam optimizer (default: %(default)s)')
-    group.add_argument('--ignore_padding_mask', action='store_false', help='Parallelize training across all detected GPUs')
+    group.add_argument('--ignore_padding_mask', action='store_true', help='Ignore the padding mask or not')
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probablility to mask the patch')
@@ -58,7 +52,14 @@ def main(args):
     star_path = args.particles
     assert os.path.splitext(star_path)[1] == '.star'
 
-    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=args.ignore_padding_mask,
+# determine whether set mask or not
+
+    if args.ignore_padding_mask is True:
+        set_mask = False
+    else:
+        set_mask = True
+
+    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
                       datadir=args.datadir,simulation=args.simulation).get_particles()
     n_data, height, width = all_data.shape
     print(n_data, height, width)

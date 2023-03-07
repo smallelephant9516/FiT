@@ -16,11 +16,6 @@ import cv2
 import numpy as np
 from datetime import datetime as dt
 
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1pitch/join_particles.star --simulation -n 100 --cylinder_mask 256 --center_mask 32 --image_patch_size 32
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_1p_fix/join_particles.star -n 10
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_short_test/join_particles.star -n 10
-# python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven/join_particles.star -n 100 --simulation
-# python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100
 
 def add_args(parser):
     parser.add_argument('particles', type=os.path.abspath, help='Input particles path (.star)')
@@ -44,7 +39,7 @@ def add_args(parser):
     group.add_argument('--image_patch_size', type=int, default=32, help='image patch size (pix)')
     group.add_argument('--length_patch_size', type=int, default=1, help='length patch size (pix)')
     group.add_argument('--lr', type=float, default=3e-5, help='Learning rate in Adam optimizer (default: %(default)s)')
-    group.add_argument('--ignore_padding_mask', action='store_false', help='Parallelize training across all detected GPUs')
+    group.add_argument('--ignore_padding_mask', action='store_true', help='Parallelize training across all detected GPUs')
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probability of using token in masked prediction task')
@@ -63,7 +58,14 @@ def main(args):
     star_path = args.particles
     assert os.path.splitext(star_path)[1] == '.star'
 
-    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=args.ignore_padding_mask,
+    if args.ignore_padding_mask is True:
+        set_mask = False
+    else:
+        print('using mask to mask the unwanted region in transformer')
+        set_mask = True
+
+
+    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
                       datadir=args.datadir,simulation=args.simulation)
     n_data, length, height, width = all_data.shape()
     print(n_data, length, height, width)
@@ -117,8 +119,8 @@ def main(args):
             opt.zero_grad()
             loss.backward()
             opt.step()
-            total_loss += loss.item() / (length * height)
-        print(dt.now()-t1,'In iteration {}, the total loss is {:.4f}'.format(epoch, total_loss))
+            total_loss += loss.item() / (length * height * width *args.batch_size)
+        print(dt.now()-t1,'In iteration {}, the total loss is {:.5f}'.format(epoch, total_loss))
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value_np = np.zeros((n_data, args.dim))
@@ -151,32 +153,6 @@ def main(args):
         save_dir = os.path.dirname(args.particles)
     print('The output vector is saved to %s' % save_dir)
     np.save(save_dir+'/saved_embedding_{}.npy'.format(epoch), all_value_np)
-
-
-#    import umap
-#    from sklearn.decomposition import PCA
-#    from sklearn.cluster import KMeans
-#    import matplotlib.pyplot as plt
-#
-#
-#    #for i in range(len(all_value_np)):
-#    #    print(i, np.isnan(all_value_np[i].mean()), np.isinf(all_value_np[i].mean()))
-#    #pca = PCA(n_components=3)
-#    #data_pca=pca.fit_transform(all_value_np)
-#    #print(data_pca[0],data_pca[1])
-#
-#    fit = umap.UMAP(n_neighbors=15)
-#    data_umap = fit.fit_transform(all_value_np)
-#    print('fit success')
-#
-#    plt.figure(figsize=(5,5))
-#    print('fit success')
-#    label=[0]*50+[1]*50
-#    print('fit success')
-#    plt.scatter(data_umap[:,0],data_umap[:,1],c=label)
-#    print('fit success')
-#    plt.show()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)

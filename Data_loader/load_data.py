@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime as dt
 import os,sys
 from Data_loader import EMData
-from Data_loader.image_transformation import crop, add_noise_SNR, padding, inplane_rotate
+from Data_loader.image_transformation import crop, add_noise_SNR, padding, inplane_rotate, normalize_image
 from Data_loader.mrcs import LazyImage, parse_header
 from Data_loader.ctf_fuction import ctf_correction, low_pass_filter_images
 
@@ -85,10 +85,10 @@ class load_simulation():
             self.data, self.mask = padding(self.all_data_image, filament_index, max_len, set_height, set_width,
                                          set_mask=set_mask)
             print('The max length is: %s' % self.data.shape[1])
-        print(self.data.min(),self.data.max())
-        self.data = cv2.normalize(self.data, None, 0, 1, cv2.NORM_MINMAX)
+        print(self.data.min(), self.data.max())
         self.data = add_noise_SNR(self.data, 0.05)
-        # all_data=cv2.normalize(all_data,None,0,1,cv2.NORM_MINMAX)
+        print(self.data.min(), self.data.max())
+        #self.data = cv2.normalize(self.data, None, 0, 1, cv2.NORM_MINMAX)
 
     def __getitem__(self):
         data = self.data
@@ -139,7 +139,9 @@ class load_mrcs():
             self.all_data_image = np.array([x.get() for x in dataset])
 
         Apix=6.9
+        # mode is first of phase flip
         self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
+        self.all_data_image = normalize_image(self.all_data_image, 5)
         self.all_data_image = low_pass_filter_images(self.all_data_image, 30, apix=Apix)
         self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'].astype('float32'))
 
@@ -156,7 +158,7 @@ class load_mrcs():
         self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len, self.set_height,
                                        self.set_width,set_mask=self.set_mask)
 
-        self.data = cv2.normalize(self.data, None, 0, 1, cv2.NORM_MINMAX)
+        #self.data = cv2.normalize(self.data, None, 0, 1, cv2.NORM_MINMAX)
         print(self.data.min(), self.data.max())
 
     def particle_images(self):

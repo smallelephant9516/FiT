@@ -88,8 +88,8 @@ class MPPLoss(nn.Module):
 
         # reshape target to patches
         # target = target.clamp(max = mpv) # clamp just in case
-        #loss = F.cross_entropy(predicted_patches[mask], target[mask])
-        loss = F.mse_loss(predicted_patches[mask], target[mask])
+        loss = F.cross_entropy(predicted_patches[mask], target[mask])
+        #loss = F.mse_loss(predicted_patches[mask], target[mask])
         return loss
 
 
@@ -217,7 +217,8 @@ class MPP_3D(nn.Module):
                             max_pixel_val, mean, std)
 
         # output transformation
-        self.to_bits = nn.Linear(dim, length_patch_size * (patch_size ** 2))
+        self.to_bits = nn.Sequential(nn.LayerNorm(dim),
+                                     nn.Linear(dim, length_patch_size * (patch_size ** 2)))
 
         # vit related dimensions
         self.patch_size = patch_size

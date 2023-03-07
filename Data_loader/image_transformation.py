@@ -82,11 +82,12 @@ def get_circular_mask(data, R=None):
     center = np.array([n / 2, m / 2])
     dist = np.sqrt((center[0] - y_grid) ** 2 + (center[1] - x_grid) ** 2)
     mask = dist <= radius
-    return mask
+    background = dist > radius
+    return mask, background
 
 
 def create_mask(all_image):
-    mask = get_circular_mask(all_image)
+    mask, background = get_circular_mask(all_image)
     batchmask = np.stack([mask] * len(all_image))
     data_mask = all_image * batchmask
     return data_mask
@@ -104,6 +105,22 @@ def rotate_image(image, angle):
 #    result = transform(image)
 #    return result
 
+def normalize_image(data,sigma=None):
+    print('normalizing the image')
+    mask, background = get_circular_mask(data)
+    data_new = np.zeros(np.shape(data))
+    for i in range(len(data)):
+        img = data[i]
+        background_value = img[background].flatten()
+        mean = background_value.mean()
+        std = background_value.std()
+        img[background] = 0
+        img[mask] = (img[mask]-mean)/std
+        if sigma is not None:
+            img[img > sigma] = 0
+            img[img < -sigma] = 0
+        data_new[i]=img
+    return data_new
 
 def inplane_rotate(data, theta):
     assert len(data) == len(theta), 'image and theta label should be equal'
