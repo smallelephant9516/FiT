@@ -1,6 +1,28 @@
 import numpy as np
 import cv2
 
+def normalize_all_image(data, sigma = None):
+    n_img,n,m = data.shape
+    data_new = []
+    mean = data.mean()
+    std = data.std()
+    print('mean and std are',mean,std)
+    for i in range(n_img):
+        img = data[i]
+        img = (img - mean)/std
+        data_new.append(img)
+        if sigma is not None:
+            img[img > sigma] = sigma
+            img[img < -sigma] = -sigma
+    data_new = np.array(data_new)
+    return data_new
+
+def norm_min_max(data):
+    min = data.min()
+    max = data.max()
+    data = (data-min)/(max-min)
+    return data
+
 def crop(images, set_height, set_width):
     img_dim = np.shape(images)[-1]
     assert (img_dim >= set_height) & (img_dim >= set_width)
@@ -12,11 +34,11 @@ def crop(images, set_height, set_width):
     return images
 
 def add_noise_SNR(image, snr):
-    b,l,x,y=np.shape(image)
+    b,x,y=np.shape(image)
     xpower = np.var(image)
     npower = xpower / snr
     print('noise sigma is: ',npower)
-    images_new=image + np.random.normal(0,1,(b,l,x,y)) * np.sqrt(npower)
+    images_new=image + np.random.normal(0,1,(b,x,y)) * np.sqrt(npower)
     images_new=images_new.astype('float32')
     return images_new
 
@@ -44,12 +66,13 @@ def cut_corpus(corpus,cut_length):
 
 def padding(all_data_image, filament_index, length, height, width, set_mask=True):
 
+    #all_data_image = normalize_filament(all_data_image, height, width)
+
     max_len = max(map(len, filament_index))
-    #all_data_image = all_data_image.astype('float32')
-    #all_data_image = crop(all_data_image, height, width)
+    all_data_image = crop(all_data_image, height, width)
 
     #all_data_image = cv2.normalize(all_data_image, None, 0, 1, cv2.NORM_MINMAX)
-    #all_data_image = np.concatenate((all_data_image, np.zeros((1, height, width))), axis=0)
+    all_data_image = np.concatenate((all_data_image, np.zeros((1, height, width))), axis=0)
 
     # change the filament index accordingly
     if length >= max_len:
@@ -68,6 +91,7 @@ def padding(all_data_image, filament_index, length, height, width, set_mask=True
         else:
             mask[i, :] = 1
     output=output.astype('float32')
+    output = norm_min_max(output)
     return output, mask
 
 
@@ -85,6 +109,16 @@ def get_circular_mask(data, R=None):
     background = dist > radius
     return mask, background
 
+def get_filament_mask(data, height, width, only_cylinder = False):
+    n, m = data.shape[1:]
+    y_grid, x_grid = np.ogrid[:n, :m]
+    center = np.array([n / 2, m / 2])
+    mask = (height/2 <= np.abs(center[0]-y_grid)) & (width/2 <= np.abs(center[1]-x_grid))
+    background = (height/2 > np.abs(center[0]-y_grid)) & (width/2 > np.abs(center[1]-x_grid))
+    if only_cylinder is True:
+        mask = (height/2 <= np.abs(center[0]-y_grid)) & (m/2 <= np.abs(center[1]-x_grid))
+        background = (height/2 > np.abs(center[0]-y_grid)) & (m/2 <= np.abs(center[1]-x_grid))
+    return mask, background
 
 def create_mask(all_image):
     mask, background = get_circular_mask(all_image)
@@ -119,6 +153,23 @@ def normalize_image(data,sigma=None):
         if sigma is not None:
             img[img > sigma] = 0
             img[img < -sigma] = 0
+        data_new[i]=img
+    return data_new
+
+def normalize_filament(data,height,width,sigma=None):
+    print('normalizing the filament')
+    mask, background = get_filament_mask(data,height,width)
+    data_new = np.zeros(np.shape(data))
+    for i in range(len(data)):
+        img = data[i]
+        background_value = img[background].flatten()
+        mean = background_value.mean()
+        std = background_value.std()
+        img[background] = 0
+        img[mask] = (img[mask]-mean)/std
+        if sigma is not None:
+            img[img > sigma] = sigma
+            img[img < -sigma] = -sigma
         data_new[i]=img
     return data_new
 

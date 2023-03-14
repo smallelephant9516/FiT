@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime as dt
 import os,sys
 from Data_loader import EMData
-from Data_loader.image_transformation import crop, add_noise_SNR, padding, inplane_rotate, normalize_image
+from Data_loader.image_transformation import add_noise_SNR, normalize_all_image, padding, inplane_rotate, normalize_image
 from Data_loader.mrcs import LazyImage, parse_header
 from Data_loader.ctf_fuction import ctf_correction, low_pass_filter_images
 
@@ -40,7 +40,6 @@ class load_new():
         return len(self.data)
 
     def shape(self):
-        print(type(self.data))
         return np.shape(self.data)
 
     def get_particles(self):
@@ -63,10 +62,8 @@ class load_simulation():
 
         # crop the image
         self.all_data_image = np.concatenate((type1, type2), axis=0)
-        self.all_data_image = crop(self.all_data_image, set_height, set_width)
         self.n_img, self.D, _ =np.shape(self.all_data_image)
         print('total number of particles are {}, with {} dimensions'.format(self.n_img,self.D))
-        self.all_data_image = np.concatenate((self.all_data_image, np.zeros((1, set_height, set_width))), axis=0)
 
         # reset the image to the give filament shape
         filmanet_meta=EMData.read_data_df(path)
@@ -74,6 +71,11 @@ class load_simulation():
         helicaldic, filament_id=filmanet_meta.extract_helical_select(dataframe)
         filament_index=filmanet_meta.filament_index(helicaldic)
 
+        print(self.all_data_image.min(), self.all_data_image.max())
+        self.all_data_image = add_noise_SNR(self.all_data_image, 0.05)
+        print(self.all_data_image.min(), self.all_data_image.max())
+        #self.all_data_image = normalize_all_image(self.all_data_image)
+        #self.all_data_image = cv2.normalize(self.all_data_image, None, 0, 1, cv2.NORM_MINMAX)
 
         if max_len>0:
             print('use max length to cut the filament: %s' % max_len)
@@ -85,10 +87,6 @@ class load_simulation():
             self.data, self.mask = padding(self.all_data_image, filament_index, max_len, set_height, set_width,
                                          set_mask=set_mask)
             print('The max length is: %s' % self.data.shape[1])
-        print(self.data.min(), self.data.max())
-        self.data = add_noise_SNR(self.data, 0.05)
-        print(self.data.min(), self.data.max())
-        #self.data = cv2.normalize(self.data, None, 0, 1, cv2.NORM_MINMAX)
 
     def __getitem__(self):
         data = self.data
@@ -138,27 +136,30 @@ class load_mrcs():
         if not lazy:
             self.all_data_image = np.array([x.get() for x in dataset])
 
-        Apix=6.9
-        # mode is first of phase flip
-        self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
-        self.all_data_image = normalize_image(self.all_data_image, 5)
-        self.all_data_image = low_pass_filter_images(self.all_data_image, 30, apix=Apix)
+        Apix=2.3
+        # mode is first of phase flip or till first peak
+        #self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
+
+        # apply low pass filter
+        self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+
+        # circular normalization
+        #self.all_data_image = normalize_image(self.all_data_image, 5)
+
+        # rotate the image based on the prior
         self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'].astype('float32'))
 
         self.n_img, self.D, _ =np.shape(self.all_data_image)
         print('total number of particles are {}, with {} diameter of'.format(self.n_img,self.D))
 
-        self.all_data_image = crop(self.all_data_image, self.set_height, self.set_width)
-        self.all_data_image = np.concatenate((self.all_data_image, np.zeros((1, self.set_height, self.set_width))), axis=0)
-        self.all_data_image = self.all_data_image.astype('float32')
+        #self.all_data_image = self.all_data_image.astype('float32')
 
-        #all_data_image = np.concatenate((all_data_image, np.zeros((1, self.D, self.D))), axis=0)
-        #all_data_image = cv2.normalize(all_data_image, None, 0, 1, cv2.NORM_MINMAX)
+        #self.all_data_image = normalize_all_image(self.all_data_image)
+        #self.all_data_image = cv2.normalize(self.all_data_image, None, 0, 1, cv2.NORM_MINMAX)
 
         self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len, self.set_height,
                                        self.set_width,set_mask=self.set_mask)
 
-        #self.data = cv2.normalize(self.data, None, 0, 1, cv2.NORM_MINMAX)
         print(self.data.min(), self.data.max())
 
     def particle_images(self):

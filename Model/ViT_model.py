@@ -236,7 +236,6 @@ class ViT_3D(nn.Module):
         b,n=mask.shape
         assert n % self.length_patch_size == 0 # to check whether the mask has correct shape
 
-        mask = torch.tensor(mask)
         cls = torch.ones(b, 1).to(mask.get_device())
 
         # reshape the mask to (b,n) n is the number of the patches

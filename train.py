@@ -151,7 +151,7 @@ def main(args):
         save_dir = args.output
     else:
         save_dir = os.path.dirname(args.particles)
-    print('The output vector is saved to %s' % save_dir)
+    print(dt.now(),' The output vector is saved to %s' % save_dir)
     np.save(save_dir+'/saved_embedding_{}.npy'.format(epoch), all_value_np)
 
 if __name__ == '__main__':
