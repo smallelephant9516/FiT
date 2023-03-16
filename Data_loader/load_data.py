@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime as dt
 import os,sys
 from Data_loader import EMData
-from Data_loader.image_transformation import add_noise_SNR, normalize_all_image, padding, inplane_rotate, normalize_image
+from Data_loader.image_transformation import add_noise_SNR, normalize_all_image, padding, padding_vector, inplane_rotate, normalize_image
 from Data_loader.mrcs import LazyImage, parse_header
 from Data_loader.ctf_fuction import ctf_correction, low_pass_filter_images
 
@@ -138,7 +138,7 @@ class load_mrcs():
 
         Apix=2.3
         # mode is first of phase flip or till first peak
-        #self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
+        self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
 
         # apply low pass filter
         self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
@@ -167,3 +167,44 @@ class load_mrcs():
 
     def __getitem__(self):
         return self.data,self.mask
+
+class load_vector():
+    def __init__(self,path,max_len, set_mask=True,vector=None):
+
+        filmanet_meta=EMData.read_data_df(path)
+        dataframe=filmanet_meta.star2dataframe()
+        helicaldic, filament_id=filmanet_meta.extract_helical_select(dataframe)
+        filament_index=filmanet_meta.filament_index(helicaldic)
+        max_len = max(map(len, filament_index))
+        if vector is None:
+            class_list = np.array(dataframe['_rlnClassNumber']).astype('int')
+            unique_class = list(np.unique(class_list))
+            n_class = len(unique_class)
+            class_index = np.array([unique_class.index(class_list[i]) for i in range(len(class_list))]).astype('int')
+            print('there are {} number of 2D classes'.format(n_class))
+            n_class_matrix=np.identity(n_class)
+            vector = n_class_matrix[class_index]
+
+        if max_len > 0:
+            print('use max length to cut the filament: %s' % max_len)
+            self.max_len = max_len
+        else:
+            self.max_len = max(map(len,self.filament_index))
+            print('The max length is: %s' % self.max_len)
+
+
+        assert len(vector) == len(dataframe)
+
+        self.data, self.mask = padding_vector(vector,filament_index,self.max_len,set_mask=set_mask)
+
+
+    def __getitem__(self, index):
+        data = self.data[index]
+        mask = self.mask[index]
+        return index, data, mask
+
+    def __len__(self):
+        return len(self.data)
+
+    def shape(self):
+        return np.shape(self.data)

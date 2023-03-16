@@ -256,3 +256,75 @@ class ViT_3D(nn.Module):
 
         return mask_matrix
 
+# vit for vectors
+class ViT_vector(nn.Module):
+    def __init__(self, *, length, patch_dim, num_classes, dim,
+                 depth, heads, batch_size, mlp_dim, pool='cls', dim_head=64, dropout=0., emb_dropout=0.):
+        super().__init__()
+
+        self.heads=heads
+
+        num_patches = length
+        patch_dim = patch_dim
+
+        self.mask=torch.ones((batch_size,heads,num_patches+1,num_patches+1))
+        self.length = length
+
+        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
+
+        self.to_patch_embedding = nn.Sequential(
+            nn.LayerNorm(patch_dim),
+            nn.Linear(patch_dim, dim),
+            nn.LayerNorm(dim),
+        )
+        phase=nn.Parameter(torch.randn((1)))
+        phase_dim = phase.repeat((1,dim))
+
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+        self.dropout = nn.Dropout(emb_dropout)
+
+        self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+
+        self.pool = pool
+        self.to_latent = nn.Identity()
+
+        self.mlp_head = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, num_classes)
+        )
+
+    def forward(self, filaments):
+        x = self.to_patch_embedding(filaments)
+        b, n, _ = x.shape
+
+        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
+        x = torch.cat((cls_tokens, x), dim=1)
+        #x += self.pos_embedding[:, :(n + 1)]
+        x = self.dropout(x)
+
+        hid_dim = self.transformer(x, self.mask)
+
+        #print(self.mask[0,0,-100:,0])
+
+        out = hid_dim.mean(dim=1) if self.pool == 'mean' else x[:, 0]
+
+        out = self.to_latent(out)
+        # out = self.mlp_head(out)
+        return hid_dim
+
+    def matrix_mask(self,mask):
+        b,n=mask.shape
+        cls = torch.ones(b, 1).to(mask.get_device())
+
+        mask = torch.cat((cls, mask), 1)
+        self.mask_cls=mask
+
+        n_new=mask.shape[-1]
+        mask_matrix = torch.bmm(mask.view(b, n_new, 1), mask.view(b, 1, n_new))
+        mask_matrix[:, :, 0] = 1
+        mask_matrix = repeat(mask_matrix, 'b n1 n2-> b h n1 n2', h=self.heads)
+        self.mask=mask_matrix
+
+        return mask_matrix
+

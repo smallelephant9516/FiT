@@ -94,6 +94,32 @@ def padding(all_data_image, filament_index, length, height, width, set_mask=True
     output = norm_min_max(output)
     return output, mask
 
+def padding_vector(vector, filament_index, length, set_mask=True):
+
+    n_img, dim =vector.shape
+    max_len = max(map(len, filament_index))
+    vector = np.concatenate((vector, np.zeros((1, dim))), axis=0)
+
+    # change the filament index accordingly
+    if length >= max_len:
+        filament_index = filament_index
+    elif length < max_len:
+        filament_index, cut_index = cut_corpus(filament_index, length)
+
+    n_filament = len(filament_index)
+    output = np.zeros((n_filament, length ,dim))
+    mask = np.zeros((n_filament, length))
+    for i in range(n_filament):
+        lst = np.array(filament_index[i])
+        lst_ones = np.ones(length)* n_img
+        lst_ones[:len(lst)] = lst
+        output[i, :len(lst), :] = vector[lst]
+        if set_mask is True:
+            mask[i, (lst_ones < n_img)] = 1
+        else:
+            mask[i, :] = 1
+    output=output.astype('float32')
+    return output, mask
 
 # circular mask
 def get_circular_mask(data, R=None):

@@ -36,9 +36,11 @@ def create_random_patches(input, mask):
     rand_patch_id=torch.zeros((b,n),dtype=torch.int64)
     for i in range(b):
         lst=mask[i]
-        max_id=len(lst[lst==1])
+        pos = torch.nonzero(lst == 1).flatten().to('cpu')
+        max_id=len(pos)
+        pos_rep = pos.repeat_interleave(multi) * multi + torch.tensor(list(torch.arange(multi)) * len(pos))
         # can be modified later for padding mask in the middle
-        rand_patch_id[i,:]=torch.randint(0,int(max_id*multi),(n,))
+        rand_patch_id[i,:]=pos_rep[torch.randint(0,int(max_id*multi),(n,))]
     return rand_patch_id
 
 class Reshape_sequence_image(nn.Module):
@@ -88,8 +90,9 @@ class MPPLoss(nn.Module):
 
         # reshape target to patches
         # target = target.clamp(max = mpv) # clamp just in case
-        loss = F.cross_entropy(predicted_patches[mask], target[mask])
-        #loss = F.mse_loss(predicted_patches[mask], target[mask])
+        # loss = F.cross_entropy(predicted_patches[mask], target[mask])
+        loss = F.mse_loss(predicted_patches[mask], target[mask])
+        #loss = F.l1_loss(predicted_patches[mask], target[mask])
         return loss
 
 
@@ -179,7 +182,7 @@ class MPP(nn.Module):
         masked_input = torch.cat((cls_tokens, masked_input), dim=1)
 
         # add positional embeddings to input
-        masked_input += transformer.pos_embedding[:, :(n + 1)]
+        #masked_input += transformer.pos_embedding[:, :(n + 1)]
         masked_input = transformer.dropout(masked_input)
 
         # get generator output and get mpp loss
@@ -296,6 +299,105 @@ class MPP_3D(nn.Module):
         logits = cls_logits[:, 1:, :]
 
         img = rearrange(img, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl).contiguous()
+
+        mpp_loss = self.loss(logits, img, mask)
+
+        return mpp_loss
+
+
+class MPP_vector(nn.Module):
+    def __init__(
+            self,
+            transformer,
+            patch_dim,
+            dim,
+            output_channel_bits=1,
+            channels=1,
+            max_pixel_val=1.0,
+            mask_prob=0.15,
+            replace_prob=0.5,
+            random_patch_prob=0.5,
+            augment_prob=0.5,
+            mean=None,
+            std=None
+    ):
+        super().__init__()
+
+        self.transformer = transformer
+        self.loss = MPPLoss(patch_dim, channels, output_channel_bits,
+                            max_pixel_val, mean, std)
+
+        # output transformation
+        self.to_bits = nn.Sequential(nn.LayerNorm(dim),
+                                     nn.Linear(dim, patch_dim))
+
+        # vit related dimensions
+        self.patch_size = patch_dim
+
+        # mpp related probabilities
+        self.mask_prob = mask_prob
+        self.replace_prob = replace_prob
+        self.random_patch_prob = random_patch_prob
+        self.augment_prob=augment_prob
+
+        # token ids
+        self.mask_token = nn.Parameter(torch.randn(1, 1, patch_dim))
+
+    def forward(self, input, padding_mask, **kwargs):
+        transformer = self.transformer
+        #print('original padding mask',padding_mask)
+        matrix_mask = transformer.matrix_mask(padding_mask)
+        # clone original image for loss
+        img = input.clone().detach()
+
+        mask = get_mask_subset_with_prob(input, self.mask_prob)
+
+        # mask input with mask patches with probability of `replace_prob` (keep patches the same with probability 1 - replace_prob)
+        masked_input = input.clone().detach()
+
+        # if random token probability > 0 for mpp
+        if self.random_patch_prob > 0:
+            random_patch_sampling_prob = self.random_patch_prob / (
+                    1 - self.replace_prob)
+            random_patch_prob = prob_mask_like(input,
+                                               random_patch_sampling_prob).to(mask.device)
+
+            bool_random_patch_prob = mask * (random_patch_prob == True)
+            random_patches = torch.randint(0,
+                                           input.shape[1],
+                                           (input.shape[0], input.shape[1]),
+                                           device=input.device)
+            random_patches = create_random_patches(input, padding_mask).to(mask.device)
+            randomized_input = masked_input[
+                torch.arange(masked_input.shape[0]).unsqueeze(-1),
+                random_patches]
+
+            masked_input[bool_random_patch_prob] = randomized_input[
+                bool_random_patch_prob]
+
+        # [mask] input
+        replace_prob = prob_mask_like(input, self.replace_prob).to(mask.device)
+        bool_mask_replace = (mask * replace_prob) == True
+
+        masked_input[bool_mask_replace] = self.mask_token
+
+        # linear embedding of patches
+        masked_input = transformer.to_patch_embedding(masked_input)
+
+        # add cls token to input sequence
+        b, n, _ = masked_input.shape
+        cls_tokens = repeat(transformer.cls_token, '() n d -> b n d', b=b)
+        masked_input = torch.cat((cls_tokens, masked_input), dim=1)
+
+        # add positional embeddings to input
+        #masked_input += transformer.pos_embedding[:, :(n + 1)]
+        masked_input = transformer.dropout(masked_input)
+
+        # get generator output and get mpp loss
+        masked_input = transformer.transformer(masked_input, matrix_mask, **kwargs)
+
+        cls_logits = self.to_bits(masked_input)
+        logits = cls_logits[:, 1:, :]
 
         mpp_loss = self.loss(logits, img, mask)
 
