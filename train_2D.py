@@ -34,6 +34,7 @@ def add_args(parser):
     group.add_argument('--length_patch_size', type=int, default=1, help='length patch size (pix)')
     group.add_argument('--lr', type=float, default=2e-4, help='Learning rate in Adam optimizer (default: %(default)s)')
     group.add_argument('--ignore_padding_mask', action='store_true', help='Ignore the padding mask or not')
+    group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probablility to mask the patch')
@@ -90,6 +91,7 @@ def main(args):
         mask_prob=args.mask_prob,          # probability of using token in masked prediction task
         random_patch_prob=args.random_patch_prob,  # probability of randomly replacing a token being used for mpp
         replace_prob=args.replace_prob,       # probability of replacing a token being used for mpp with the mask token
+        lossF=args.loss,
     )
     mpp_trainer.to(device)
     opt = torch.optim.Adam(mpp_trainer.parameters(), lr=args.lr)

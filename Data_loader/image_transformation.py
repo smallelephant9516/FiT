@@ -24,6 +24,7 @@ def norm_min_max(data):
     return data
 
 def crop(images, set_height, set_width):
+    #images = normalize_filament(images, set_height, set_width)
     img_dim = np.shape(images)[-1]
     assert (img_dim >= set_height) & (img_dim >= set_width)
     h1 = int((img_dim - set_height) / 2)
@@ -31,6 +32,7 @@ def crop(images, set_height, set_width):
     w1 = int((img_dim - set_width) / 2)
     w2 = int((img_dim + set_width) / 2)
     images = images[:, h1:h2, w1:w2]
+    #images = cv2.normalize(images, None, 0, 1, cv2.NORM_MINMAX)
     return images
 
 def add_noise_SNR(image, snr):
@@ -64,17 +66,13 @@ def cut_corpus(corpus,cut_length):
     print(len(new_corpus))
     return new_corpus,cut_index
 
-def padding(all_data_image, filament_index, length, height, width, set_mask=True):
+def padding(all_data_image, filament_index, length, set_mask=True):
 
-    #all_data_image = normalize_filament(all_data_image, height, width)
-
-    max_len = max(map(len, filament_index))
-    all_data_image = crop(all_data_image, height, width)
-
-    #all_data_image = cv2.normalize(all_data_image, None, 0, 1, cv2.NORM_MINMAX)
+    n_img, height, width = all_data_image.shape
     all_data_image = np.concatenate((all_data_image, np.zeros((1, height, width))), axis=0)
 
     # change the filament index accordingly
+    max_len = max(map(len, filament_index))
     if length >= max_len:
         filament_index = filament_index
     elif length < max_len:
@@ -206,7 +204,7 @@ def inplane_rotate(data, theta):
     data = create_mask(data)
     for i in range(len(data)):
         img = data[i]
-        img_rot = rotate_image(img, theta[i])
+        img_rot = rotate_image(img, float(theta[i]))
         data_new[i] = img_rot
     return data_new
 

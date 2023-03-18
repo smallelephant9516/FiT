@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime as dt
 import os,sys
 from Data_loader import EMData
-from Data_loader.image_transformation import add_noise_SNR, normalize_all_image, padding, padding_vector, inplane_rotate, normalize_image
+from Data_loader.image_transformation import crop, add_noise_SNR, normalize_all_image, padding, padding_vector, inplane_rotate, normalize_image
 from Data_loader.mrcs import LazyImage, parse_header
 from Data_loader.ctf_fuction import ctf_correction, low_pass_filter_images
 
@@ -74,17 +74,18 @@ class load_simulation():
         print(self.all_data_image.min(), self.all_data_image.max())
         self.all_data_image = add_noise_SNR(self.all_data_image, 0.05)
         print(self.all_data_image.min(), self.all_data_image.max())
-        #self.all_data_image = normalize_all_image(self.all_data_image)
-        #self.all_data_image = cv2.normalize(self.all_data_image, None, 0, 1, cv2.NORM_MINMAX)
+
+        # crop the image based on the dimension provided
+        self.all_data_image = crop(self.all_data_image,set_height, set_width)
 
         if max_len>0:
             print('use max length to cut the filament: %s' % max_len)
             filament_index_new = filmanet_meta
-            self.data, self.mask = padding(self.all_data_image, filament_index_new, max_len, set_height, set_width,
+            self.data, self.mask = padding(self.all_data_image, filament_index_new, max_len,
                                          set_mask=set_mask)
         else:
             max_len = max(map(len,filament_index))
-            self.data, self.mask = padding(self.all_data_image, filament_index, max_len, set_height, set_width,
+            self.data, self.mask = padding(self.all_data_image, filament_index, max_len,
                                          set_mask=set_mask)
             print('The max length is: %s' % self.data.shape[1])
 
@@ -136,7 +137,7 @@ class load_mrcs():
         if not lazy:
             self.all_data_image = np.array([x.get() for x in dataset])
 
-        Apix=2.3
+        Apix=6.9
         # mode is first of phase flip or till first peak
         self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
 
@@ -147,18 +148,16 @@ class load_mrcs():
         #self.all_data_image = normalize_image(self.all_data_image, 5)
 
         # rotate the image based on the prior
-        self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'].astype('float32'))
+        self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'])
 
-        self.n_img, self.D, _ =np.shape(self.all_data_image)
-        print('total number of particles are {}, with {} diameter of'.format(self.n_img,self.D))
+        # crop the image based on the dimension provided
+        self.all_data_image = crop(self.all_data_image, self.set_height, self.set_width)
+        self.all_data_image = self.all_data_image.astype('float32')
 
-        #self.all_data_image = self.all_data_image.astype('float32')
+        self.n_img, _, _ =np.shape(self.all_data_image)
+        print('total number of particles are {}'.format(self.n_img))
 
-        #self.all_data_image = normalize_all_image(self.all_data_image)
-        #self.all_data_image = cv2.normalize(self.all_data_image, None, 0, 1, cv2.NORM_MINMAX)
-
-        self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len, self.set_height,
-                                       self.set_width,set_mask=self.set_mask)
+        self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len,set_mask=self.set_mask)
 
         print(self.data.min(), self.data.max())
 

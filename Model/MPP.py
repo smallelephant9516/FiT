@@ -40,7 +40,8 @@ def create_random_patches(input, mask):
         max_id=len(pos)
         pos_rep = pos.repeat_interleave(multi) * multi + torch.tensor(list(torch.arange(multi)) * len(pos))
         # can be modified later for padding mask in the middle
-        rand_patch_id[i,:]=pos_rep[torch.randint(0,int(max_id*multi),(n,))]
+        # rand_patch_id[i,:]=pos_rep[torch.randint(0,int(max_id*multi),(n,))]
+        rand_patch_id[i, :] = torch.randint(0, int(max_id * multi), (n,))
     return rand_patch_id
 
 class Reshape_sequence_image(nn.Module):
@@ -74,7 +75,8 @@ class MPPLoss(nn.Module):
             output_channel_bits,
             max_pixel_val,
             mean,
-            std
+            std,
+            lossF = 'l2_norm'
     ):
         super().__init__()
         self.patch_size = patch_size
@@ -84,15 +86,21 @@ class MPPLoss(nn.Module):
 
         self.mean = torch.tensor(mean).view(-1, 1, 1) if mean else None
         self.std = torch.tensor(std).view(-1, 1, 1) if std else None
+        if lossF == 'cross_entropy':
+            self.loss = F.cross_entropy
+        elif lossF == 'l2_norm':
+            self.loss = F.mse_loss
+        elif lossF == 'l1_norm':
+            self.loss = F.l1_loss
+        else:
+            print('no such loss function: {}'.format(lossF))
 
     def forward(self, predicted_patches, target, mask):
         p, c, mpv, bits, device = self.patch_size, self.channels, self.max_pixel_val, self.output_channel_bits, target.device
 
         # reshape target to patches
         # target = target.clamp(max = mpv) # clamp just in case
-        # loss = F.cross_entropy(predicted_patches[mask], target[mask])
-        loss = F.mse_loss(predicted_patches[mask], target[mask])
-        #loss = F.l1_loss(predicted_patches[mask], target[mask])
+        loss = self.loss(predicted_patches[mask], target[mask])
         return loss
 
 
@@ -112,12 +120,13 @@ class MPP(nn.Module):
             replace_prob=0.5,
             random_patch_prob=0.5,
             mean=None,
-            std=None
+            std=None,
+            lossF = 'l2_norm'
     ):
         super().__init__()
         self.transformer = transformer
         self.loss = MPPLoss(patch_size, channels, output_channel_bits,
-                            max_pixel_val, mean, std)
+                            max_pixel_val, mean, std , lossF = lossF)
 
         # output transformation
         self.to_bits = nn.Linear(dim, patch_size ** 2)
@@ -212,12 +221,13 @@ class MPP_3D(nn.Module):
             random_patch_prob=0.5,
             augment_prob=0.5,
             mean=None,
-            std=None
+            std=None,
+            lossF = 'l2_norm'
     ):
         super().__init__()
         self.transformer = transformer
         self.loss = MPPLoss(patch_size, channels, output_channel_bits,
-                            max_pixel_val, mean, std)
+                            max_pixel_val, mean, std, lossF = lossF)
 
         # output transformation
         self.to_bits = nn.Sequential(nn.LayerNorm(dim),
@@ -319,13 +329,14 @@ class MPP_vector(nn.Module):
             random_patch_prob=0.5,
             augment_prob=0.5,
             mean=None,
-            std=None
+            std=None,
+            lossF='l2_norm'
     ):
         super().__init__()
 
         self.transformer = transformer
         self.loss = MPPLoss(patch_dim, channels, output_channel_bits,
-                            max_pixel_val, mean, std)
+                            max_pixel_val, mean, std, lossF = lossF)
 
         # output transformation
         self.to_bits = nn.Sequential(nn.LayerNorm(dim),

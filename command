@@ -11,23 +11,31 @@ python train.py /home/jiang/li3221/scratch/practice-filament/10243-tau/JoinStar/
 python train.py /home/jiang/li3221/scratch/practice-filament/10243-tau/JoinStar/job285/join_particles.star -n 100
 python train.py /net/jiang/scratch/li3221/cryodrgn2/EcACC/Subset_J389/particles.star --datadir /net/jiang/scratch/li3221/cryodrgn2/EcACC/Subset_J389 -n 20 --cylinder_mask 128 -b 2 (Apix=5.1375)
 python train.py /home/jiang/li3221/scratch/filament_cluster/10340/JoinStar/job505/join_particles.star -n 100 -b 16
+python train.py /home/jiang/li3221/scratch/filament_cluster/10340/JoinStar/job368/join_particles.star -b 4 -n 20
 
 # train_vector.py
 python train_vector.py /home/jiang/li3221/scratch/practice-filament/10230-tau/Class2D/job087/run_it025_data.star -b 16 -n 100
 python train_vector.py /home/jiang/li3221/scratch/filament_cluster/10340/Class2D/job257/run_ct8_it025_data.star -b 32 -n 100
 python train_vector.py /home/jiang/li3221/scratch/filament_cluster/10340/Class2D/job185/run_ct14_it025_data.star -b 32 -n 100
 python train_vector.py /home/jiang/li3221/scratch/filament_cluster/10340/Class2D/job166/run_it025_data.star -b 16 -n 100
+python train_vector.py /home/jiang/li3221/scratch/filament_cluster/10340/Class2D/job387/run_it025_data.star -b 16 -n 100
+python train_vector.py /home/jiang/li3221/scratch/filament_cluster/10340/Class2D/job379/run_it025_data.star -b 16 -n 100
 python train_vector.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job537/join_particles.star -b 32 -n 100 \
     --vector_path /net/jiang/scratch/li3221/cryodrgn2/10230-tau/job537/het_128_mask/z.pkl
 python train_vector.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job537/join_particles.star -b 32 -n 20 \
     --vector_path /net/jiang/scratch/li3221/cryodrgn2/10230-tau/job537/het_helix_mask_10_0_NCE/z.19.pkl
 python train_vector.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job511/join_particles.star -b 32 -n 20 \
     --vector_path /net/jiang/scratch/li3221/cryodrgn2/10230-tau/job511/het_helix_mask/z.pkl
+python train_vector.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -b 32 -n 20 \
+    --vector_path /net/jiang/scratch/li3221/Github/Unsupervised-Classification/results/10230_508_ctf_4/custom_single/pretext/feature_60.npy
 python train_vector.py /net/jiang/scratch/li3221/cryodrgn2/EcACC/All_2D_refine_J384/particles.star -b 32 -n 30
 python train_vector.py /net/jiang/scratch/li3221/cryodrgn2/EcACC/All_2D_refine_J384/particles.star -b 32 -n 20 \
     --vector_path /net/jiang/scratch/li3221/cryodrgn2/EcACC/All_2D_refine_J384/het_helix_neighbor_2_1kld/z.29.pkl
 python train_vector.py /net/jiang/scratch/li3221/Reja/dsaQtest/Class2D/job053/run_it025_data.star -b 32 -n 30
 
+# train_TT.py
+python train_TT.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --cylinder_mask 192 -b 2
+python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100
 
 
 
