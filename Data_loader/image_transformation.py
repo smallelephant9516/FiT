@@ -25,6 +25,7 @@ def norm_min_max(data):
 
 def crop(images, set_height, set_width):
     #images = normalize_filament(images, set_height, set_width)
+    print('cropping the image based on the given cylinder and center mask')
     img_dim = np.shape(images)[-1]
     assert (img_dim >= set_height) & (img_dim >= set_width)
     h1 = int((img_dim - set_height) / 2)
@@ -81,7 +82,11 @@ def padding(all_data_image, filament_index, length, set_mask=True):
     n_filament = len(filament_index)
     output = np.zeros((n_filament, length, height, width))
     mask = np.zeros((n_filament, length))
+    print('There are {} number of filaments'.format(n_filament))
+
     for i in range(n_filament):
+        if i % 100 ==0:
+            print('creating {} filaments'.format(i))
         lst = filament_index[i]
         output[i, :len(lst), :, :] = all_data_image[lst]
         if set_mask is True:

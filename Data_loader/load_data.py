@@ -137,7 +137,7 @@ class load_mrcs():
         if not lazy:
             self.all_data_image = np.array([x.get() for x in dataset])
 
-        Apix=6.9
+        Apix=2.3
         # mode is first of phase flip or till first peak
         self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
 

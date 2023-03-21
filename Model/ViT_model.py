@@ -114,6 +114,9 @@ class Transformer(nn.Module):
     # input is B x N x D
 
 
+
+
+
 class ViT(nn.Module):
     def __init__(self, *, image_height, image_width, image_patch_size, num_classes, dim, depth, heads, mlp_dim, pool='cls',
                  dim_head=64, dropout=0., emb_dropout=0.):

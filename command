@@ -12,6 +12,12 @@ python train.py /home/jiang/li3221/scratch/practice-filament/10243-tau/JoinStar/
 python train.py /net/jiang/scratch/li3221/cryodrgn2/EcACC/Subset_J389/particles.star --datadir /net/jiang/scratch/li3221/cryodrgn2/EcACC/Subset_J389 -n 20 --cylinder_mask 128 -b 2 (Apix=5.1375)
 python train.py /home/jiang/li3221/scratch/filament_cluster/10340/JoinStar/job505/join_particles.star -n 100 -b 16
 python train.py /home/jiang/li3221/scratch/filament_cluster/10340/JoinStar/job368/join_particles.star -b 4 -n 20
+python train.py /home/jiang/li3221/scratch/filament_cluster/10340/Class2D/job166/run_it025_data.star -b 16 -n 100
+python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 16
+
+# train_2D.py
+python train_2D.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 16 -n 20 -b 4
+python train_2D.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation
 
 # train_vector.py
 python train_vector.py /home/jiang/li3221/scratch/practice-filament/10230-tau/Class2D/job087/run_it025_data.star -b 16 -n 100
@@ -37,5 +43,8 @@ python train_vector.py /net/jiang/scratch/li3221/Reja/dsaQtest/Class2D/job053/ru
 python train_TT.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --cylinder_mask 192 -b 2
 python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100
 
+# train_2D_original.py
+python train_2D.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 16 -n 20 -b 4
+python train_2D.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation
 
 

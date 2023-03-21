@@ -186,7 +186,5 @@ def low_pass_filter_images(images, ang, apix=1):
     lowpass_images=np.zeros(images.shape)
     for i in range(len(images)):
         lowpass_images[i] = low_pass_filter(images[i],ang,apix)
-        if i % 10000 == 0:
-            print(i)
     return lowpass_images
 

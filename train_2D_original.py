@@ -1,5 +1,5 @@
-from Model.ViT_model import ViT
-from Model.MPP import MPP
+from Model.ViT_Github import ViT
+from Model.ViT_Github import MPP
 from Data_loader import EMData
 from Data_loader.load_data import load_new
 
@@ -72,9 +72,8 @@ def main(args):
     assert width % args.image_patch_size == 0
 
     model = ViT(
-        image_height = height,
-        image_width = width,
-        image_patch_size=args.image_patch_size,
+        image_size=height,
+        patch_size=args.image_patch_size,
         num_classes=1000,
         dim=args.dim,
         depth=args.depth,
@@ -91,10 +90,9 @@ def main(args):
         mask_prob=args.mask_prob,          # probability of using token in masked prediction task
         random_patch_prob=args.random_patch_prob,  # probability of randomly replacing a token being used for mpp
         replace_prob=args.replace_prob,       # probability of replacing a token being used for mpp with the mask token
-        lossF=args.loss,
     )
     mpp_trainer.to(device)
-    opt = torch.optim.Adam(mpp_trainer.parameters(), lr=args.lr)
+    opt = torch.optim.Adam(mpp_trainer.parameters(), lr=3e-4)
 
     data_batch = DataLoader(all_data, batch_size=args.batch_size, shuffle=True)
     t2=dt.now()
@@ -138,7 +136,7 @@ def main(args):
     else:
         save_dir = os.path.dirname(args.particles)
     print('The output vector is saved to %s' % save_dir)
-    np.save(save_dir+'/saved_particles_embedding_{}.npy'.format(epoch), all_filament_np)
+    np.save(save_dir+'/saved_original_embedding_{}.npy'.format(epoch), all_filament_np)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
