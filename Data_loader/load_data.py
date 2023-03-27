@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime as dt
 import os,sys
 from Data_loader import EMData
-from Data_loader.image_transformation import crop, add_noise_SNR, normalize_all_image, padding, padding_vector, inplane_rotate, normalize_image
+from Data_loader.image_transformation import crop, add_noise_SNR, normalize_all_image, padding, padding_vector, inplane_rotate, normalize_image,defocus_filament
 from Data_loader.mrcs import LazyImage, parse_header
 from Data_loader.ctf_fuction import ctf_correction, low_pass_filter_images
 
@@ -23,13 +23,16 @@ class load():
         return np.shape(self.data)
 
 class load_new():
-    def __init__(self,path,set_height,set_width,max_len,set_mask=True,datadir=None,simulation=True):
+    def __init__(self,path,set_height,set_width,max_len,set_mask=True,datadir=None,simulation=True,ctf = None):
         if simulation is True:
-            self.dataset = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir)
+            self.dataset = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
         else:
             self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir)
         self.data = self.dataset.data
         self.mask = self.dataset.mask
+        if ctf is not None:
+            self.defocus = self.dataset.defocus
+            self.defocus_filament = self.dataset.defocus_filament
 
     def __getitem__(self, index):
         data = self.data[index]
@@ -47,52 +50,71 @@ class load_new():
         return self.dataset.all_data_image
 
 class load_simulation():
-    def __init__(self,path,set_height,set_width,max_len,set_mask,datadir):
+    def __init__(self,path,set_height,set_width,max_len,set_mask,datadir,ctf):
         if datadir is None:
             folder = os.path.dirname(path)
         else:
             folder=datadir
 
-        type1_path=folder+'/type1.mrcs'
-        type2_path=folder+'/type2.mrcs'
-        with mrcfile.open(type1_path) as mrc:
-            type1 = mrc.data
-        with mrcfile.open(type2_path) as mrc:
-            type2 = mrc.data
-
-        # crop the image
-        self.all_data_image = np.concatenate((type1, type2), axis=0)
-        self.n_img, self.D, _ =np.shape(self.all_data_image)
-        print('total number of particles are {}, with {} dimensions'.format(self.n_img,self.D))
-
         # reset the image to the give filament shape
         filmanet_meta=EMData.read_data_df(path)
-        dataframe=filmanet_meta.star2dataframe()
-        helicaldic, filament_id=filmanet_meta.extract_helical_select(dataframe)
-        filament_index=filmanet_meta.filament_index(helicaldic)
+        self.dataframe=filmanet_meta.star2dataframe()
+        helicaldic, filament_id=filmanet_meta.extract_helical_select(self.dataframe)
+        self.filament_index=filmanet_meta.filament_index(helicaldic)
 
-        print(self.all_data_image.min(), self.all_data_image.max())
-        self.all_data_image = add_noise_SNR(self.all_data_image, 0.05)
-        print(self.all_data_image.min(), self.all_data_image.max())
+        if max_len > 0:
+            print('use max length to cut the filament: %s' % max_len)
+            self.max_len = max_len
+        else:
+            self.max_len = max(map(len,self.filament_index))
+            print('The max length is: %s' % self.max_len)
+        if ctf is not None:
+            # load defocus value
+            Apix = 1.15
+            self.defocus = np.load(ctf, allow_pickle=True)
+            defocus = self.defocus[:,2:]
+            self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
+
+        #type1_path=folder+'/type1.mrcs'
+        #type2_path=folder+'/type2.mrcs'
+        #with mrcfile.open(type1_path) as mrc:
+        #    type1 = mrc.data
+        #with mrcfile.open(type2_path) as mrc:
+        #    type2 = mrc.data
+        #self.all_data_image = np.concatenate((type1, type2), axis=0)
+
+        # load simulated particles directly
+        data_path = folder+'/noise/'+'all_image_ctf.mrcs'
+        with mrcfile.open(data_path) as mrc:
+            self.all_data_image = mrc.data
+
+        #print(self.all_data_image.min(), self.all_data_image.max())
+        self.all_data_image = add_noise_SNR(self.all_data_image, 0.1)
+        #print(self.all_data_image.min(), self.all_data_image.max())
+
+        if ctf is not None:
+            print('doing ctf correction on image')
+            #np.save(folder+'/noise/before_correction.npy', self.all_data_image[0])
+            self.defocus = self.defocus [:,2:]
+            self.all_data_image = ctf_correction(self.all_data_image, self.defocus, Apix, mode = 'phase flip')
+            #np.save(folder + '/noise/after_correction_pf.npy', self.all_data_image[0])
+            # apply low pass filter
+            self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+
+        # crop the image
+        self.n_img, self.D, _ =np.shape(self.all_data_image)
+        print('total number of particles are {}, with {} dimensions'.format(self.n_img,self.D))
 
         # crop the image based on the dimension provided
         self.all_data_image = crop(self.all_data_image,set_height, set_width)
 
-        if max_len>0:
-            print('use max length to cut the filament: %s' % max_len)
-            filament_index_new = filmanet_meta
-            self.data, self.mask = padding(self.all_data_image, filament_index_new, max_len,
-                                         set_mask=set_mask)
-        else:
-            max_len = max(map(len,filament_index))
-            self.data, self.mask = padding(self.all_data_image, filament_index, max_len,
-                                         set_mask=set_mask)
-            print('The max length is: %s' % self.data.shape[1])
+        self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len, set_mask=set_mask)
 
     def __getitem__(self):
         data = self.data
         mask = self.mask
         return data,mask
+
 
 
 class load_mrcs():
@@ -137,12 +159,14 @@ class load_mrcs():
         if not lazy:
             self.all_data_image = np.array([x.get() for x in dataset])
 
-        Apix=2.3
+        Apix=6.9
         # mode is first of phase flip or till first peak
-        self.all_data_image = ctf_correction(self.all_data_image, self.dataframe, Apix, mode = 'phase flip')
+        defocus = np.array(self.dataframe[['_rlnDefocusU','_rlnDefocusV','_rlnDefocusAngle']]).T.astype('float32')
+
+        self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
 
         # apply low pass filter
-        self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+        #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
 
         # circular normalization
         #self.all_data_image = normalize_image(self.all_data_image, 5)

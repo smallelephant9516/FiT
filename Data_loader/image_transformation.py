@@ -94,7 +94,7 @@ def padding(all_data_image, filament_index, length, set_mask=True):
         else:
             mask[i, :] = 1
     output=output.astype('float32')
-    output = norm_min_max(output)
+    #output = norm_min_max(output)
     return output, mask
 
 def padding_vector(vector, filament_index, length, set_mask=True):
@@ -123,6 +123,28 @@ def padding_vector(vector, filament_index, length, set_mask=True):
             mask[i, :] = 1
     output=output.astype('float32')
     return output, mask
+
+def defocus_filament(defocus, filament_index, length):
+    #print('checking ctf parameter',defocus[0])
+    n_img,n_parameters  = defocus.shape
+    max_len = max(map(len, filament_index))
+    defocus = np.concatenate((defocus, np.zeros((1, n_parameters))), axis=0)
+
+    # change the filament index accordingly
+    if length >= max_len:
+        filament_index = filament_index
+    elif length < max_len:
+        filament_index, cut_index = cut_corpus(filament_index, length)
+
+    n_filament = len(filament_index)
+    output = []
+    for i in range(n_filament):
+        lst = np.array(filament_index[i])
+        lst_ones = np.ones(length)* n_img
+        lst_ones[:len(lst)] = lst
+        output.append(defocus[lst].astype('float32'))
+    output = np.array(output, dtype = object)
+    return output
 
 # circular mask
 def get_circular_mask(data, R=None):

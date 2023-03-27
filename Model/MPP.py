@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from einops import rearrange, repeat, reduce
 from einops.layers.torch import Rearrange
 
+from Data_loader.ctf_fuction import ctf_correction_torch
+
 
 def exists(val):
     return val is not None
@@ -246,12 +248,13 @@ class MPP_3D(nn.Module):
         # token ids
         self.mask_token = nn.Parameter(torch.randn(1, 1, length_patch_size * (patch_size ** 2)))
 
-    def forward(self, input, padding_mask, **kwargs):
+    def forward(self, input, padding_mask, ctf=None, **kwargs):
         transformer = self.transformer
         #print('original padding mask',padding_mask)
         matrix_mask = transformer.matrix_mask(padding_mask)
         # clone original image for loss
         img = input.clone().detach()
+        b,length,height,width = img.shape
 
         # reshape raw image to patches
         p = self.patch_size
@@ -309,6 +312,18 @@ class MPP_3D(nn.Module):
         logits = cls_logits[:, 1:, :]
 
         img = rearrange(img, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl).contiguous()
+
+        logits = rearrange(logits, 'b (l h w) (pl p1 p2) -> b (l pl) (h p1) (w p2)', p1=p, p2=p, h=height//p,w=width//p)
+        #if ctf is not None:
+        #    Apix = 1.15
+        #    for i in range(len(logits)):
+        #        ctf_i = ctf[i]
+        #        n_img_ctf_corr = len(ctf_i)
+        #        filament_tmp = logits[i,:n_img_ctf_corr]
+        #        filament_tmp = ctf_correction_torch(filament_tmp, ctf_i, Apix)
+        #        logits[i, :n_img_ctf_corr] = filament_tmp
+
+        logits = rearrange(logits, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl)
 
         mpp_loss = self.loss(logits, img, mask)
 

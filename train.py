@@ -30,6 +30,7 @@ def add_args(parser):
     group.add_argument('--center_mask', type=int, default=128, help='mask around the helix')
     group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
     group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
+    group.add_argument("--ctf_path", type=os.path.abspath, help="Use the ctf file in dataset or not")
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
@@ -67,7 +68,10 @@ def main(args):
 
 
     all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
-                      datadir=args.datadir,simulation=args.simulation)
+                      datadir=args.datadir,simulation=args.simulation, ctf=args.ctf_path)
+    if args.ctf_path is not None:
+        defocus_filament = all_data.defocus_filament
+        print(len(defocus_filament))
     n_data, length, height, width = all_data.shape()
     print(n_data, length, height, width)
 
@@ -117,7 +121,10 @@ def main(args):
         for index, batch, mask in data_batch:
             images = batch.to(device)
             mask = mask.to(device)
-            loss = mpp_trainer(images,mask)
+            ctf = None
+            if args.ctf_path is not None:
+                ctf = defocus_filament[index]
+            loss = mpp_trainer(images,mask,ctf)
             opt.zero_grad()
             loss.backward()
             opt.step()

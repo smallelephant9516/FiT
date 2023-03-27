@@ -330,4 +330,3 @@ class ViT_vector(nn.Module):
         self.mask=mask_matrix
 
         return mask_matrix
-

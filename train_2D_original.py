@@ -1,5 +1,5 @@
-from Model.ViT_Github import ViT
-from Model.ViT_Github import MPP
+from Model.ViT_test import ViT
+from Model.ViT_test import MPP
 from Data_loader import EMData
 from Data_loader.load_data import load_new
 
@@ -7,6 +7,8 @@ import torch
 import argparse
 import os, sys
 from torch.utils.data import DataLoader
+
+from einops import rearrange, repeat, reduce
 
 import numpy as np
 from datetime import datetime as dt
@@ -20,7 +22,7 @@ def add_args(parser):
 
 
     group = parser.add_argument_group('Data loader parameters')
-    group.add_argument('--cylinder_mask', type=int, default=64,help='mask around the helix')
+    group.add_argument('--cylinder_mask', type=int, default=128,help='mask around the helix')
     group.add_argument('--center_mask', type=int, default=128, help='mask around the helix')
     group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
     group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
@@ -63,7 +65,8 @@ def main(args):
     all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
                       datadir=args.datadir,simulation=args.simulation).get_particles()
     n_data, height, width = all_data.shape
-    print(n_data, height, width)
+    all_data = repeat(all_data, 'n h w-> n 3 h w ')
+    print(all_data.shape)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
 
