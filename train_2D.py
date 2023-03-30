@@ -1,7 +1,7 @@
 from Model.ViT_model import ViT
 from Model.MPP import MPP
 from Data_loader import EMData
-from Data_loader.load_data import load_new
+from Data_loader.load_data import load_new_particles
 
 import torch
 import argparse
@@ -24,10 +24,11 @@ def add_args(parser):
     group.add_argument('--center_mask', type=int, default=128, help='mask around the helix')
     group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
     group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
+    group.add_argument("--ctf_path", type=os.path.abspath, help="Use the ctf file in dataset or not")
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
-    group.add_argument('-b','--batch_size', type=int, default=4, help='Minibatch size (default: %(default)s)')
+    group.add_argument('-b','--batch_size', type=int, default=32, help='Minibatch size (default: %(default)s)')
     group.add_argument('--heads', type=int, default=4, help='number of heads')
     group.add_argument('--depth', type=int, default=3, help='number of layers')
     group.add_argument('--image_patch_size', type=int, default=32, help='image patch size (pix)')
@@ -60,9 +61,12 @@ def main(args):
     else:
         set_mask = True
 
-    all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
-                      datadir=args.datadir,simulation=args.simulation).get_particles()
-    n_data, height, width = all_data.shape
+    all_data=load_new_particles(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
+                      datadir=args.datadir,simulation=args.simulation,ctf=args.ctf_path)
+    if args.ctf_path is not None:
+        defocus = all_data.defocus
+        print(defocus.shape)
+    n_data, height, width = all_data.shape()
     print(n_data, height, width)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
@@ -102,9 +106,11 @@ def main(args):
 
     for epoch in range(args.num_epochs):
         total_loss = 0
-        for batch in data_batch:
+        for index, batch in data_batch:
             images = batch.to(device)
-            loss = mpp_trainer(images)
+            if args.ctf_path is not None:
+                ctf = defocus[index]
+            loss = mpp_trainer(images,ctf)
             opt.zero_grad()
             loss.backward()
             opt.step()
@@ -113,7 +119,7 @@ def main(args):
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value = torch.tensor([])
-    for batch in data_output:
+    for index, batch in data_output:
         #import image
         image = batch.to(device)
         value_hidden = model.forward(image).detach().cpu()

@@ -27,7 +27,7 @@ class load_new():
         if simulation is True:
             self.dataset = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
         else:
-            self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir)
+            self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
         self.data = self.dataset.data
         self.mask = self.dataset.mask
         if ctf is not None:
@@ -48,6 +48,26 @@ class load_new():
     def get_particles(self):
         self.dataset.all_data_image = cv2.normalize(self.dataset.all_data_image, None, 0, 1, cv2.NORM_MINMAX)
         return self.dataset.all_data_image
+
+class load_new_particles():
+    def __init__(self,path,set_height,set_width,max_len,set_mask=True,datadir=None,simulation=True,ctf = None):
+        if simulation is True:
+            self.dataset = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
+        else:
+            self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
+        self.data = self.dataset.all_data_image
+        if ctf is not None:
+            self.defocus = self.dataset.defocus
+
+    def __getitem__(self, index):
+        data = self.data[index]
+        return index, data
+
+    def __len__(self):
+        return len(self.data)
+
+    def shape(self):
+        return np.shape(self.data)
 
 class load_simulation():
     def __init__(self,path,set_height,set_width,max_len,set_mask,datadir,ctf):
@@ -70,9 +90,9 @@ class load_simulation():
             print('The max length is: %s' % self.max_len)
         if ctf is not None:
             # load defocus value
-            Apix = 1.15
             self.defocus = np.load(ctf, allow_pickle=True)
-            defocus = self.defocus[:,2:]
+            Apix = self.defocus[0,1]
+            defocus = self.defocus
             self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
 
         #type1_path=folder+'/type1.mrcs'
@@ -94,12 +114,11 @@ class load_simulation():
 
         if ctf is not None:
             print('doing ctf correction on image')
-            #np.save(folder+'/noise/before_correction.npy', self.all_data_image[0])
-            self.defocus = self.defocus [:,2:]
-            self.all_data_image = ctf_correction(self.all_data_image, self.defocus, Apix, mode = 'phase flip')
-            #np.save(folder + '/noise/after_correction_pf.npy', self.all_data_image[0])
+            np.save(folder+'/noise/before_correction.npy', self.all_data_image[0])
+            self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
+            np.save(folder + '/noise/after_correction_pf.npy', self.all_data_image[0])
             # apply low pass filter
-            self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+            #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
 
         # crop the image
         self.n_img, self.D, _ =np.shape(self.all_data_image)
@@ -118,11 +137,12 @@ class load_simulation():
 
 
 class load_mrcs():
-    def __init__(self,path,set_height,set_width,max_len,set_mask,datadir):
+    def __init__(self,path,set_height,set_width,max_len,set_mask,datadir,ctf):
 
         self.set_height = set_height
         self.set_width = set_width
         self.set_mask = set_mask
+        self.ctf = ctf
 
         if datadir is None:
             folder_list = path.split('/')
@@ -159,14 +179,24 @@ class load_mrcs():
         if not lazy:
             self.all_data_image = np.array([x.get() for x in dataset])
 
-        Apix=6.9
-        # mode is first of phase flip or till first peak
-        defocus = np.array(self.dataframe[['_rlnDefocusU','_rlnDefocusV','_rlnDefocusAngle']]).T.astype('float32')
+        if self.ctf is not None:
 
-        self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
+            self.defocus = np.load(self.ctf, allow_pickle=True)
+            Apix = self.defocus[0,1]
+            defocus = self.defocus
+            self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
 
-        # apply low pass filter
-        #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+            print('doing ctf correction on image')
+            np.save(self.folder+'/before_correction.npy', self.all_data_image[0])
+
+            #defocus = np.array(self.dataframe[['_rlnDefocusU', '_rlnDefocusV', '_rlnDefocusAngle']]).astype('float32')
+
+            # mode is first of phase flip or till first peak
+            self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
+            np.save(self.folder + '/after_correction_pf.npy', self.all_data_image[0])
+            # apply low pass filter
+            #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+
 
         # circular normalization
         #self.all_data_image = normalize_image(self.all_data_image, 5)
@@ -214,7 +244,6 @@ class load_vector():
         else:
             self.max_len = max(map(len,self.filament_index))
             print('The max length is: %s' % self.max_len)
-
 
         assert len(vector) == len(dataframe)
 

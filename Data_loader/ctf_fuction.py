@@ -225,9 +225,9 @@ def iht2_center_torch(img):
 
 def ctf_correction_torch(all_data_image, defocus, Apix):
     defocus = defocus.T
-    dfU = torch.tensor(defocus[0]).to(all_data_image.device)
-    dfV = torch.tensor(defocus[1]).to(all_data_image.device)
-    dfang = torch.tensor(defocus[2]).to(all_data_image.device)
+    dfU = torch.tensor(defocus[2]).to(all_data_image.device)
+    dfV = torch.tensor(defocus[3]).to(all_data_image.device)
+    dfang = torch.tensor(defocus[4]).to(all_data_image.device)
     extent = 0.5
     image_number, D, _ = np.shape(all_data_image)
     x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=True),
@@ -249,9 +249,9 @@ def ctf_correction_torch(all_data_image, defocus, Apix):
 def ctf_correction(all_data_image, defocus, Apix, mode='first'):
     defocus = defocus.T
     print(defocus[:,0],defocus.shape)
-    dfU = defocus[0]
-    dfV = defocus[1]
-    dfang = defocus[2]
+    dfU = defocus[2]
+    dfV = defocus[3]
+    dfang = defocus[4]
     extent = 0.5
     image_number, D, _ = np.shape(all_data_image)
     x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=True),

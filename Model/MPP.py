@@ -144,10 +144,11 @@ class MPP(nn.Module):
         # token ids
         self.mask_token = nn.Parameter(torch.randn(1, 1, patch_size ** 2))
 
-    def forward(self, input, **kwargs):
+    def forward(self, input, ctf=None, **kwargs):
         transformer = self.transformer
         # clone original image for loss
         img = input.clone().detach()
+        b,height,width = img.shape
 
         # reshape raw image to patches
         p = self.patch_size
@@ -203,6 +204,14 @@ class MPP(nn.Module):
         logits = cls_logits[:, 1:, :]
 
         img = rearrange(img, 'b (h p1) (w p2) -> b (h w) (p1 p2) ', p1=p, p2=p).contiguous()
+
+        logits = rearrange(logits, 'b (h w) (p1 p2) -> b (h p1) (w p2)', p1=p, h=height//p)
+        if ctf is not None:
+            Apix = 6.9
+            logits = ctf_correction_torch(logits, ctf, Apix)
+
+        logits = rearrange(logits, 'b (h p1) (w p2) -> b (h w) (p1 p2)', p1=p, p2=p)
+
         mpp_loss = self.loss(logits, img, mask)
 
         return mpp_loss
@@ -314,14 +323,14 @@ class MPP_3D(nn.Module):
         img = rearrange(img, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl).contiguous()
 
         logits = rearrange(logits, 'b (l h w) (pl p1 p2) -> b (l pl) (h p1) (w p2)', p1=p, p2=p, h=height//p,w=width//p)
-        #if ctf is not None:
-        #    Apix = 1.15
-        #    for i in range(len(logits)):
-        #        ctf_i = ctf[i]
-        #        n_img_ctf_corr = len(ctf_i)
-        #        filament_tmp = logits[i,:n_img_ctf_corr]
-        #        filament_tmp = ctf_correction_torch(filament_tmp, ctf_i, Apix)
-        #        logits[i, :n_img_ctf_corr] = filament_tmp
+        if ctf is not None:
+            Apix = 1.15
+            for i in range(len(logits)):
+                ctf_i = ctf[i]
+                n_img_ctf_corr = len(ctf_i)
+                filament_tmp = logits[i,:n_img_ctf_corr]
+                filament_tmp = ctf_correction_torch(filament_tmp, ctf_i, Apix)
+                logits[i, :n_img_ctf_corr] = filament_tmp
 
         logits = rearrange(logits, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl)
 
