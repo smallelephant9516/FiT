@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Any, Optional, Tuple
 import numpy as np
 
+# copy from cryoDRGN
 DTYPE_FOR_MODE = {
     0: np.int8,
     1: np.int16,

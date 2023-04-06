@@ -193,7 +193,7 @@ class MPP(nn.Module):
         masked_input = torch.cat((cls_tokens, masked_input), dim=1)
 
         # add positional embeddings to input
-        #masked_input += transformer.pos_embedding[:, :(n + 1)]
+        masked_input += transformer.pos_embedding[:, :(n + 1)]
         masked_input = transformer.dropout(masked_input)
 
         # get generator output and get mpp loss
@@ -321,6 +321,7 @@ class MPP_3D(nn.Module):
 
         # add positional embeddings to input
         #masked_input += transformer.pos_embedding[:, :(n + 1)]
+        masked_input = transformer.pos_embedding_fre_shift(masked_input)
         masked_input = transformer.dropout(masked_input)
 
         # get generator output and get mpp loss
@@ -332,18 +333,18 @@ class MPP_3D(nn.Module):
         img = rearrange(img, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl).contiguous()
 
         logits = rearrange(logits, 'b (l h w) (pl p1 p2) -> b (l pl) (h p1) (w p2)', p1=p, p2=p, h=height//p,w=width//p)
-        if ctf is not None:
-            Apix = 6.9
-            max_d = max(height,width)
-            h_min,h_max,w_min,w_max = int((max_d-height)/2),int((max_d+height)/2),int((max_d-width)/2),int((max_d+width)/2)
-            for i in range(len(logits)):
-                ctf_i = ctf[i]
-                n_img_ctf_corr = len(ctf_i)
-                image_pad = torch.zeros(n_img_ctf_corr,max_d,max_d).to(logits.device)
-                filament_tmp = logits[i,:n_img_ctf_corr]
-                image_pad[:,h_min:h_max,w_min:w_max] = filament_tmp
-                image_pad = ctf_correction_torch(image_pad, ctf_i, Apix)
-                logits[i, :n_img_ctf_corr] = image_pad[:,h_min:h_max,w_min:w_max]
+        #if ctf is not None:
+        #    Apix = 6.9
+        #    max_d = max(height,width)
+        #    h_min,h_max,w_min,w_max = int((max_d-height)/2),int((max_d+height)/2),int((max_d-width)/2),int((max_d+width)/2)
+        #    for i in range(len(logits)):
+        #        ctf_i = ctf[i]
+        #        n_img_ctf_corr = len(ctf_i)
+        #        image_pad = torch.zeros(n_img_ctf_corr,max_d,max_d).to(logits.device)
+        #        filament_tmp = logits[i,:n_img_ctf_corr]
+        #        image_pad[:,h_min:h_max,w_min:w_max] = filament_tmp
+        #        image_pad = ctf_correction_torch(image_pad, ctf_i, Apix)
+        #        logits[i, :n_img_ctf_corr] = image_pad[:,h_min:h_max,w_min:w_max]
 
         logits = rearrange(logits, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl)
 
