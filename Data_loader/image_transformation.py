@@ -80,7 +80,7 @@ def padding(all_data_image, filament_index, length, set_mask=True):
         filament_index, cut_index = cut_corpus(filament_index, length)
 
     n_filament = len(filament_index)
-    output = np.zeros((n_filament, length, height, width))
+    output = np.zeros((n_filament, length, height, width)).astype('float32')
     mask = np.zeros((n_filament, length))
     print('There are {} number of filaments'.format(n_filament))
 
@@ -95,6 +95,7 @@ def padding(all_data_image, filament_index, length, set_mask=True):
             mask[i, :] = 1
     output=output.astype('float32')
     #output = norm_min_max(output)
+    #output = cv2.normalize(output, None, 0, 1, cv2.NORM_MINMAX)
     return output, mask
 
 def padding_vector(vector, filament_index, length, set_mask=True):

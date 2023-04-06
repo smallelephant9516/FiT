@@ -24,10 +24,7 @@ class load():
 
 class load_new():
     def __init__(self,path,set_height,set_width,max_len,set_mask=True,datadir=None,simulation=True,ctf = None):
-        if simulation is True:
-            self.dataset = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
-        else:
-            self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
+        self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, simulation=simulation, ctf=ctf)
         self.data = self.dataset.data
         self.mask = self.dataset.mask
         if ctf is not None:
@@ -51,10 +48,7 @@ class load_new():
 
 class load_new_particles():
     def __init__(self,path,set_height,set_width,max_len,set_mask=True,datadir=None,simulation=True,ctf = None):
-        if simulation is True:
-            self.dataset = load_simulation(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
-        else:
-            self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, ctf=ctf)
+        self.dataset = load_mrcs(path,set_height,set_width,max_len,set_mask=set_mask,datadir=datadir, simulation=simulation, ctf=ctf)
         self.data = self.dataset.all_data_image
         if ctf is not None:
             self.defocus = self.dataset.defocus
@@ -112,36 +106,15 @@ class load_simulation():
         self.all_data_image = add_noise_SNR(self.all_data_image, 0.1)
         #print(self.all_data_image.min(), self.all_data_image.max())
 
-        if ctf is not None:
-            print('doing ctf correction on image')
-            np.save(folder+'/noise/before_correction.npy', self.all_data_image[0])
-            self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
-            np.save(folder + '/noise/after_correction_pf.npy', self.all_data_image[0])
-            # apply low pass filter
-            #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
-
-        # crop the image
-        self.n_img, self.D, _ =np.shape(self.all_data_image)
-        print('total number of particles are {}, with {} dimensions'.format(self.n_img,self.D))
-
-        # crop the image based on the dimension provided
-        self.all_data_image = crop(self.all_data_image,set_height, set_width)
-
-        self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len, set_mask=set_mask)
-
-    def __getitem__(self):
-        data = self.data
-        mask = self.mask
-        return data,mask
-
 
 
 class load_mrcs():
-    def __init__(self,path,set_height,set_width,max_len,set_mask,datadir,ctf):
+    def __init__(self,path,set_height,set_width,max_len,set_mask,datadir,simulation,ctf):
 
         self.set_height = set_height
         self.set_width = set_width
         self.set_mask = set_mask
+        self.simulation = simulation
         self.ctf = ctf
 
         if datadir is None:
@@ -166,37 +139,51 @@ class load_mrcs():
         self.get_image()
 
     def get_image(self):
-        image_order = list(self.dataframe['filename'])
-        mic_id_order = list(self.dataframe['pid'])
-        header = parse_header(self.folder+image_order[0])
-        D = header.D  # image size along one dimension in pixels
-        dtype = header.dtype
-        stride = dtype().itemsize * D * D
+        if self.simulation is True:
+            #type1_path=self.folder+'/type1.mrcs'
+            #type2_path=self.folder+'/type2.mrcs'
+            #with mrcfile.open(type1_path) as mrc:
+            #   type1 = mrc.data
+            #with mrcfile.open(type2_path) as mrc:
+            #   type2 = mrc.data
+            #self.all_data_image = np.concatenate((type1, type2), axis=0)
 
-        lazy=False
-        dataset = [
-            LazyImage(self.folder + f, (D, D), dtype, 1024 + ii * stride) for ii, f in zip(mic_id_order, image_order)]
-        if not lazy:
-            self.all_data_image = np.array([x.get() for x in dataset])
+            # load simulated particles directly
+            data_path = self.folder + 'noise/' + 'all_image_ctf.mrcs'
+            with mrcfile.open(data_path) as mrc:
+                self.all_data_image = mrc.data
+
+            # print(self.all_data_image.min(), self.all_data_image.max())
+            self.all_data_image = add_noise_SNR(self.all_data_image, 1)
+            # print(self.all_data_image.min(), self.all_data_image.max())
+        else:
+            image_order = list(self.dataframe['filename'])
+            mic_id_order = list(self.dataframe['pid'])
+            header = parse_header(self.folder + image_order[0])
+            D = header.D  # image size along one dimension in pixels
+            dtype = header.dtype
+            stride = dtype().itemsize * D * D
+
+            lazy=False
+            dataset = [
+                LazyImage(self.folder + f, (D, D), dtype, 1024 + ii * stride) for ii, f in zip(mic_id_order, image_order)]
+            if not lazy:
+                self.all_data_image = np.array([x.get() for x in dataset])
 
         if self.ctf is not None:
-
             self.defocus = np.load(self.ctf, allow_pickle=True)
             Apix = self.defocus[0,1]
             defocus = self.defocus
             self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
 
             print('doing ctf correction on image')
-            np.save(self.folder+'/before_correction.npy', self.all_data_image[0])
-
+            np.save(self.folder+'before_correction.npy', self.all_data_image[0])
             #defocus = np.array(self.dataframe[['_rlnDefocusU', '_rlnDefocusV', '_rlnDefocusAngle']]).astype('float32')
-
             # mode is first of phase flip or till first peak
             self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
-            np.save(self.folder + '/after_correction_pf.npy', self.all_data_image[0])
             # apply low pass filter
             #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
-
+            np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
 
         # circular normalization
         #self.all_data_image = normalize_image(self.all_data_image, 5)

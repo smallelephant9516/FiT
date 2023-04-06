@@ -102,13 +102,12 @@ class MPPLoss(nn.Module):
 
         # reshape target to patches
         # target = target.clamp(max = mpv) # clamp just in case
-        loss = self.loss(predicted_patches[mask], target[mask])
+        #loss = self.loss(predicted_patches[mask], target[mask])
+        loss = self.loss(predicted_patches, target)
         return loss
 
 
 # main class
-
-
 class MPP(nn.Module):
     def __init__(
             self,
@@ -206,9 +205,9 @@ class MPP(nn.Module):
         img = rearrange(img, 'b (h p1) (w p2) -> b (h w) (p1 p2) ', p1=p, p2=p).contiguous()
 
         logits = rearrange(logits, 'b (h w) (p1 p2) -> b (h p1) (w p2)', p1=p, h=height//p)
-        if ctf is not None:
-            Apix = 6.9
-            logits = ctf_correction_torch(logits, ctf, Apix)
+        #if ctf is not None:
+        #    Apix = 6.9
+        #    logits = ctf_correction_torch(logits, ctf, Apix)
 
         logits = rearrange(logits, 'b (h p1) (w p2) -> b (h w) (p1 p2)', p1=p, p2=p)
 
@@ -233,20 +232,24 @@ class MPP_3D(nn.Module):
             augment_prob=0.5,
             mean=None,
             std=None,
-            lossF = 'l2_norm'
+            lossF = 'l2_norm',
+            patch_emb_type = 'linear' # conv or linear
     ):
         super().__init__()
         self.transformer = transformer
         self.loss = MPPLoss(patch_size, channels, output_channel_bits,
                             max_pixel_val, mean, std, lossF = lossF)
 
+
         # output transformation
         self.to_bits = nn.Sequential(nn.LayerNorm(dim),
                                      nn.Linear(dim, length_patch_size * (patch_size ** 2)))
 
+        self.normLayer = nn.LayerNorm(length_patch_size * (patch_size ** 2))
         # vit related dimensions
         self.patch_size = patch_size
         self.length_patch_size = length_patch_size
+        self.patch_emb_type = patch_emb_type
 
         # mpp related probabilities
         self.mask_prob = mask_prob
@@ -268,6 +271,7 @@ class MPP_3D(nn.Module):
         # reshape raw image to patches
         p = self.patch_size
         pl = self.length_patch_size
+        patch_length = (length//pl) * (height//p) * (width//p)
         input = rearrange(input, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)',
                           p1=p, p2=p, pl=pl)
 
@@ -303,7 +307,12 @@ class MPP_3D(nn.Module):
         masked_input[bool_mask_replace] = self.mask_token
 
         # linear embedding of patches
-        masked_input = transformer.to_patch_embedding[1:4](masked_input)
+        if self.patch_emb_type == 'linear':
+            masked_input = transformer.to_patch_embedding[1:4](masked_input)
+        elif self.patch_emb_type == 'conv':
+            masked_input = masked_input.view(-1,pl,p,p)
+            masked_input = transformer.to_patch_embedding_conv(masked_input).flatten(1,3).view(b,patch_length,-1)
+            masked_input = transformer.LN_embedding(masked_input)
 
         # add cls token to input sequence
         b, n, _ = masked_input.shape
@@ -324,15 +333,21 @@ class MPP_3D(nn.Module):
 
         logits = rearrange(logits, 'b (l h w) (pl p1 p2) -> b (l pl) (h p1) (w p2)', p1=p, p2=p, h=height//p,w=width//p)
         if ctf is not None:
-            Apix = 1.15
+            Apix = 6.9
+            max_d = max(height,width)
+            h_min,h_max,w_min,w_max = int((max_d-height)/2),int((max_d+height)/2),int((max_d-width)/2),int((max_d+width)/2)
             for i in range(len(logits)):
                 ctf_i = ctf[i]
                 n_img_ctf_corr = len(ctf_i)
+                image_pad = torch.zeros(n_img_ctf_corr,max_d,max_d).to(logits.device)
                 filament_tmp = logits[i,:n_img_ctf_corr]
-                filament_tmp = ctf_correction_torch(filament_tmp, ctf_i, Apix)
-                logits[i, :n_img_ctf_corr] = filament_tmp
+                image_pad[:,h_min:h_max,w_min:w_max] = filament_tmp
+                image_pad = ctf_correction_torch(image_pad, ctf_i, Apix)
+                logits[i, :n_img_ctf_corr] = image_pad[:,h_min:h_max,w_min:w_max]
 
         logits = rearrange(logits, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=p, p2=p, pl=pl)
+
+        logits = self.normLayer(logits)
 
         mpp_loss = self.loss(logits, img, mask)
 

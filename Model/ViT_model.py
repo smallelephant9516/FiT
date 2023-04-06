@@ -199,6 +199,10 @@ class ViT_3D(nn.Module):
             nn.Linear(patch_dim, dim),
             nn.LayerNorm(dim),
         )
+
+        self.to_patch_embedding_conv = nn.Conv2d(1, dim, kernel_size=image_patch_size, stride=image_patch_size)
+        self.LN_embedding = nn.LayerNorm(dim)
+
         phase=nn.Parameter(torch.randn((1)))
         phase_dim = phase.repeat((1,dim))
 

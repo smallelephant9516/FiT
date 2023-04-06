@@ -69,7 +69,7 @@ def main(args):
     n_data, height, width = all_data.shape()
     print(n_data, height, width)
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() is True else 'cpu')
 
     # check the dimension of the height, width and length
     assert height % args.image_patch_size == 0
@@ -145,6 +145,7 @@ def main(args):
         save_dir = os.path.dirname(args.particles)
     print('The output vector is saved to %s' % save_dir)
     np.save(save_dir+'/saved_particles_embedding_{}.npy'.format(epoch), all_filament_np)
+    np.save(save_dir + '/particles_emb_{}.npy'.format(epoch), all_value_np[:,1:,:].mean(axis=1))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)

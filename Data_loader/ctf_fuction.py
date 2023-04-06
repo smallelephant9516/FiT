@@ -238,9 +238,9 @@ def ctf_correction_torch(all_data_image, defocus, Apix):
     for i in range(len(all_data_image)):
         image = all_data_image[i]
         image_fft = ht2_center_torch(image)
-        ctf = compute_ctf(coords, dfU[i], dfV[i], dfang[i], 300, 2.7, 0.1, apix=Apix)
+        ctf = compute_ctf(coords, dfU[i], dfV[i], dfang[i], 300, 2.7, 0.1, apix=Apix, bfactor = 30)
         ctf = ctf.reshape((D, D)).to(image.device)
-        image_F = image_fft * ctf
+        image_F = image_fft * (ctf) * torch.sign(ctf)
         image_conv = iht2_center_torch(image_F)
         all_image_conv[i] = image_conv
     return all_image_conv
@@ -262,16 +262,16 @@ def ctf_correction(all_data_image, defocus, Apix, mode='first'):
     if mode == 'phase flip':
         for i in range(len(all_data_image)):
             image = all_data_image[i]
-            image_fft = ht2_center(image).astype(np.float32)
+            image_fft = ht2_center(image)
             ctf = compute_ctf_np(coords, dfU[i], dfV[i], dfang[i], 300, 2.7, 0.1, apix=Apix)
             ctf = ctf.reshape((D, D))
-            image_flip = image_fft * np.sign(ctf)
+            image_flip = -image_fft * np.sign(ctf)
             image_pf = iht2_center(image_flip)
             all_image_pf[i] = image_pf
     elif mode == 'first':
         for i in range(len(all_data_image)):
             image = all_data_image[i]
-            image_fft = ht2_center(image).astype(np.float32)
+            image_fft = ht2_center(image)
             ctf = compute_ctf_first(coords, dfU[i], dfV[i], dfang[i], 300, 2.7, 0.1, apix=Apix)
             ctf = ctf.reshape((D, D))
             image_flip = -image_fft / ctf
