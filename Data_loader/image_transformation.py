@@ -24,8 +24,8 @@ def norm_min_max(data):
     return data
 
 def crop(images, set_height, set_width):
-    #images = normalize_filament(images, set_height, set_width)
-    print('cropping the image based on the given cylinder and center mask')
+    #images = normalize_filament(images, set_height, set_width,5)
+    #print('cropping the image based on the given cylinder and center mask')
     img_dim = np.shape(images)[-1]
     assert (img_dim >= set_height) & (img_dim >= set_width)
     h1 = int((img_dim - set_height) / 2)
@@ -220,8 +220,8 @@ def normalize_filament(data,height,width,sigma=None):
         img[background] = 0
         img[mask] = (img[mask]-mean)/std
         if sigma is not None:
-            img[img > sigma] = sigma
-            img[img < -sigma] = -sigma
+            img[img > sigma] = 0
+            img[img < -sigma] = 0
         data_new[i]=img
     return data_new
 

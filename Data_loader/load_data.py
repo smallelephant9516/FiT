@@ -89,24 +89,22 @@ class load_simulation():
             defocus = self.defocus
             self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
 
-        #type1_path=folder+'/type1.mrcs'
-        #type2_path=folder+'/type2.mrcs'
-        #with mrcfile.open(type1_path) as mrc:
-        #    type1 = mrc.data
-        #with mrcfile.open(type2_path) as mrc:
-        #    type2 = mrc.data
-        #self.all_data_image = np.concatenate((type1, type2), axis=0)
+        type1_path=folder+'/type1.mrcs'
+        type2_path=folder+'/type2.mrcs'
+        with mrcfile.open(type1_path) as mrc:
+            type1 = mrc.data
+        with mrcfile.open(type2_path) as mrc:
+            type2 = mrc.data
+        self.all_data_image = np.concatenate((type1, type2), axis=0)
 
         # load simulated particles directly
-        data_path = folder+'/noise/'+'all_image_ctf.mrcs'
-        with mrcfile.open(data_path) as mrc:
-            self.all_data_image = mrc.data
+        #data_path = folder+'/noise/'+'all_image_ctf.mrcs'
+        #with mrcfile.open(data_path) as mrc:
+        #    self.all_data_image = mrc.data
 
         #print(self.all_data_image.min(), self.all_data_image.max())
         self.all_data_image = add_noise_SNR(self.all_data_image, 0.1)
         #print(self.all_data_image.min(), self.all_data_image.max())
-
-
 
 class load_mrcs():
     def __init__(self,path,set_height,set_width,max_len,set_mask,datadir,simulation,ctf):
@@ -154,7 +152,7 @@ class load_mrcs():
                 self.all_data_image = mrc.data
 
             # print(self.all_data_image.min(), self.all_data_image.max())
-            self.all_data_image = add_noise_SNR(self.all_data_image, 1)
+            self.all_data_image = add_noise_SNR(self.all_data_image, 0.1)
             # print(self.all_data_image.min(), self.all_data_image.max())
         else:
             image_order = list(self.dataframe['filename'])
@@ -186,13 +184,13 @@ class load_mrcs():
             np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
 
         # circular normalization
-        #self.all_data_image = normalize_image(self.all_data_image, 5)
+        self.all_data_image = normalize_image(self.all_data_image, 5)
 
         # rotate the image based on the prior
         self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'])
 
         # crop the image based on the dimension provided
-        self.all_data_image = crop(self.all_data_image, self.set_height, self.set_width)
+        #self.all_data_image = crop(self.all_data_image, self.set_height, self.set_width)
         self.all_data_image = self.all_data_image.astype('float32')
 
         self.n_img, _, _ =np.shape(self.all_data_image)

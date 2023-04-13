@@ -2,13 +2,15 @@
 import math
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+import torchvision.transforms as T
+from torch import nn
 
 from einops import rearrange, repeat, reduce
 from einops.layers.torch import Rearrange
 
 from Data_loader.ctf_fuction import ctf_correction_torch
+from Data_loader.image_transformation import crop
 
 
 def exists(val):
@@ -45,6 +47,17 @@ def create_random_patches(input, mask):
         # rand_patch_id[i,:]=pos_rep[torch.randint(0,int(max_id*multi),(n,))]
         rand_patch_id[i, :] = torch.randint(0, int(max_id * multi), (n,))
     return rand_patch_id
+
+def image_augmentation(images,h,w,rot,h_shift,w_shift):
+    # images b X D X D, rot: degree, h_shift,w_shift: percentage
+    combined = T.Compose([
+        T.RandomAffine(degrees=(-rot, rot), translate=(h_shift, w_shift), scale=(1, 1)),
+        T.CenterCrop(size=(h, w)),
+        T.RandomHorizontalFlip(),
+        T.Normalize(mean=[0], std=[1])
+    ])
+    return combined(images)
+
 
 class Reshape_sequence_image(nn.Module):
     def __init__(
@@ -112,6 +125,8 @@ class MPP(nn.Module):
     def __init__(
             self,
             transformer,
+            image_height,
+            image_width,
             patch_size,
             dim,
             output_channel_bits=1,
@@ -134,6 +149,12 @@ class MPP(nn.Module):
 
         # vit related dimensions
         self.patch_size = patch_size
+        self.image_height = image_height
+        self.image_width = image_width
+
+        # check the dimension of the height, width and length
+        assert image_height % patch_size == 0
+        assert image_width % patch_size == 0
 
         # mpp related probabilities
         self.mask_prob = mask_prob
@@ -147,8 +168,14 @@ class MPP(nn.Module):
         transformer = self.transformer
         # clone original image for loss
         img = input.clone().detach()
+        img = crop(img, self.image_height, self.image_width)
+        img = T.Normalize(mean=[0], std=[1])(img)
+        #img = image_augmentation(img, self.image_height, self.image_width, 5, 0.01, 0.1)
         b,height,width = img.shape
 
+        # add augmentation
+        #input = crop(input, self.image_height, self.image_width)
+        input = image_augmentation(input, self.image_height, self.image_width, 10, 0.01, 0.01)
         # reshape raw image to patches
         p = self.patch_size
         input = rearrange(input,
@@ -194,6 +221,7 @@ class MPP(nn.Module):
 
         # add positional embeddings to input
         masked_input += transformer.pos_embedding[:, :(n + 1)]
+        #masked_input += transformer.pos_embedding_sincos
         masked_input = transformer.dropout(masked_input)
 
         # get generator output and get mpp loss
@@ -220,6 +248,8 @@ class MPP_3D(nn.Module):
     def __init__(
             self,
             transformer,
+            image_height,
+            image_width,
             patch_size,
             length_patch_size,
             dim,
@@ -248,6 +278,8 @@ class MPP_3D(nn.Module):
         self.normLayer = nn.LayerNorm(length_patch_size * (patch_size ** 2))
         # vit related dimensions
         self.patch_size = patch_size
+        self.image_height = image_height
+        self.image_width = image_width
         self.length_patch_size = length_patch_size
         self.patch_emb_type = patch_emb_type
 
@@ -321,7 +353,7 @@ class MPP_3D(nn.Module):
 
         # add positional embeddings to input
         #masked_input += transformer.pos_embedding[:, :(n + 1)]
-        masked_input = transformer.pos_embedding_fre_shift(masked_input)
+        #masked_input = transformer.pos_embedding_fre_shift(masked_input)
         masked_input = transformer.dropout(masked_input)
 
         # get generator output and get mpp loss
@@ -334,7 +366,7 @@ class MPP_3D(nn.Module):
 
         logits = rearrange(logits, 'b (l h w) (pl p1 p2) -> b (l pl) (h p1) (w p2)', p1=p, p2=p, h=height//p,w=width//p)
         #if ctf is not None:
-        #    Apix = 6.9
+        #    Apix = 1.15
         #    max_d = max(height,width)
         #    h_min,h_max,w_min,w_max = int((max_d-height)/2),int((max_d+height)/2),int((max_d-width)/2),int((max_d+width)/2)
         #    for i in range(len(logits)):
@@ -442,6 +474,8 @@ class MPP_vector(nn.Module):
 
         # add positional embeddings to input
         #masked_input += transformer.pos_embedding[:, :(n + 1)]
+        masked_input += transformer.pos_embedding_sincos(masked_input)
+        #masked_input = transformer.pos_embedding_fre_shift(masked_input)
         masked_input = transformer.dropout(masked_input)
 
         # get generator output and get mpp loss

@@ -69,15 +69,11 @@ def main(args):
     n_data, height, width = all_data.shape()
     print(n_data, height, width)
 
-    device = torch.device('cuda:1' if torch.cuda.is_available() is True else 'cpu')
-
-    # check the dimension of the height, width and length
-    assert height % args.image_patch_size == 0
-    assert width % args.image_patch_size == 0
+    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT(
-        image_height = height,
-        image_width = width,
+        image_height = args.cylinder_mask,
+        image_width = args.center_mask,
         image_patch_size=args.image_patch_size,
         num_classes=1000,
         dim=args.dim,
@@ -89,6 +85,8 @@ def main(args):
     )
     model.to(device)
     mpp_trainer = MPP(
+        image_height=args.cylinder_mask,
+        image_width=args.center_mask,
         transformer=model,
         patch_size=args.image_patch_size,
         dim=args.dim,
@@ -108,6 +106,7 @@ def main(args):
         total_loss = 0
         for index, batch in data_batch:
             images = batch.to(device)
+            ctf = None
             if args.ctf_path is not None:
                 ctf = defocus[index]
             loss = mpp_trainer(images,ctf)

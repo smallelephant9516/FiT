@@ -75,7 +75,7 @@ def main(args):
     n_data, length, height, width = all_data.shape()
     print(n_data, length, height, width)
 
-    device = torch.device('cuda:1' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
 
     # check the dimension of the height, width and length
     assert height % args.image_patch_size == 0
@@ -100,6 +100,8 @@ def main(args):
     model.to(device)
     mpp_trainer = MPP_3D(
         transformer=model,
+        image_height=args.cylinder_mask,
+        image_width=args.center_mask,
         patch_size=args.image_patch_size,
         length_patch_size = args.length_patch_size,
         dim=args.dim,
@@ -126,7 +128,7 @@ def main(args):
                 ctf = defocus_filament[index]
             loss = mpp_trainer(images,mask,ctf)
             opt.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             opt.step()
             total_loss += loss.item() / (length * height * width *args.batch_size)
         print(dt.now()-t1,'In iteration {}, the total loss is {:.5f}'.format(epoch, total_loss))

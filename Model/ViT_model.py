@@ -31,28 +31,21 @@ def posemb_sincos_1d(patches, temperature = 10000, dtype = torch.float32):
 
 
 class SinusoidalPositionalEncoding(nn.Module):
-    def __init__(self, batch_size, dim, max_len=2048, learnable_freq=True, learnable_shift=True):
+    def __init__(self, batch_size, dim, max_len=2048, device='cuda:2'):
         super(SinusoidalPositionalEncoding, self).__init__()
         self.dim = dim
         self.max_len = max_len
 
-        div_term = torch.exp(torch.arange(0, dim, 2).float() * -(torch.log(torch.tensor(10000.0)) / dim))
+        self.freq = nn.Parameter(torch.rand(batch_size, 1), requires_grad=True).to(device)
+        self.shift = nn.Parameter(torch.rand(batch_size, 1), requires_grad=True).to(device)
 
-        if learnable_freq:
-            self.freq = nn.Parameter(torch.ones(batch_size, 1, dim // 2) * div_term, requires_grad=True)
-        else:
-            self.freq = div_term
-
-        if learnable_shift:
-            self.shift = nn.Parameter(torch.zeros(batch_size, 1, dim // 2), requires_grad=True)
-        else:
-            self.shift = torch.zeros(batch_size, 1, dim // 2)
-
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        self.pe = torch.zeros(batch_size, max_len, dim)
-        self.pe[:, :, 0::2] = torch.sin(position * self.freq[:, :max_len, :] + self.shift[:, :max_len, :])
-        self.pe[:, :, 1::2] = torch.cos(position * self.freq[:, :max_len, :] + self.shift[:, :max_len, :])
-        self.pe = self.pe
+        position = torch.arange(0, max_len, dtype=torch.float).to(device)
+        position = repeat(position, 'n -> b n', b=batch_size)
+        print(position.shape)
+        self.pe = torch.sin(position * self.freq + self.shift).to(device)
+        print(self.pe .shape)
+        self.pe = repeat(self.pe, 'm n -> m n d', d=dim)
+        #self.register_buffer('pe', pe, persistent=False)
 
     def forward(self, x):
         x = x + self.pe[:, :x.size(1), :]
@@ -250,7 +243,9 @@ class ViT_3D(nn.Module):
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.pos_embedding_sincos = posemb_sincos_1d
-        self.pos_embedding_fre_shift = SinusoidalPositionalEncoding(batch_size, dim, num_patches+1)
+        learnable_shift_freq = SinusoidalPositionalEncoding(batch_size, dim, num_patches+1)
+        learnable_shift_freq.to('cuda:1')
+        self.pos_embedding_fre_shift = learnable_shift_freq
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
@@ -271,7 +266,7 @@ class ViT_3D(nn.Module):
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
         #x += self.pos_embedding[:, :(n + 1)]
-        x = self.pos_embedding_fre_shift(x)
+        #x = self.pos_embedding_fre_shift(x)
         x = self.dropout(x)
 
         hid_dim = self.transformer(x, self.mask)
@@ -334,6 +329,9 @@ class ViT_vector(nn.Module):
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.pos_embedding_sincos = posemb_sincos_1d
+        #learnable_shift_freq = SinusoidalPositionalEncoding(batch_size, dim, num_patches+1)
+        #learnable_shift_freq.to('cuda:1')
+        #self.pos_embedding_fre_shift = learnable_shift_freq
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
@@ -354,6 +352,8 @@ class ViT_vector(nn.Module):
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
         #x += self.pos_embedding[:, :(n + 1)]
+        x += self.pos_embedding_sincos(x)
+        #x = self.pos_embedding_fre_shift(x)
         x = self.dropout(x)
 
         hid_dim = self.transformer(x, self.mask)

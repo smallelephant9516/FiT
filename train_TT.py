@@ -2,6 +2,7 @@ from Model.ViT_model import ViT, ViT_vector
 from Model.MPP import MPP, MPP_vector
 from Data_loader import EMData
 from Data_loader.load_data import load_new_particles, load_vector
+from Data_loader.image_transformation import crop
 
 import torch
 import argparse
@@ -71,15 +72,11 @@ def main(args):
     n_data, height, width = all_data.shape()
     print(n_data, height, width)
 
-    device = torch.device('cuda:1' if torch.cuda.is_available() is True else 'cpu')
-
-    # check the dimension of the height, width and length
-    assert height % args.image_patch_size == 0
-    assert width % args.image_patch_size == 0
+    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT(
-        image_height = height,
-        image_width = width,
+        image_height = args.cylinder_mask,
+        image_width = args.center_mask,
         image_patch_size=args.image_patch_size,
         num_classes=1000,
         dim=args.dim,
@@ -92,6 +89,8 @@ def main(args):
     model.to(device)
     mpp_trainer = MPP(
         transformer=model,
+        image_height=args.cylinder_mask,
+        image_width=args.center_mask,
         patch_size=args.image_patch_size,
         dim=args.dim,
         mask_prob=args.mask_prob,          # probability of using token in masked prediction task
@@ -110,11 +109,12 @@ def main(args):
         total_loss = 0
         for index, batch in data_batch:
             images = batch.to(device)
+            ctf = None
             if args.ctf_path is not None:
                 ctf = defocus[index]
             loss = mpp_trainer(images,ctf)
             opt.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             opt.step()
             total_loss += loss.item() / (width * height)
         print(dt.now()-t1,'In iteration {}, the total loss is {:.4f}'.format(epoch, total_loss))
@@ -124,6 +124,7 @@ def main(args):
     for index, batch in data_output:
         #import image
         image = batch.to(device)
+        image = crop(image, args.cylinder_mask, args.center_mask)
         value_hidden = model.forward(image).detach().cpu()
         all_value = torch.cat((all_value, value_hidden), 0)
     print(all_value.shape)
@@ -162,14 +163,14 @@ def main(args):
 
     data_batch = DataLoader(all_data, batch_size=args.batch_size, shuffle=True)
 
-    for epoch in range(args.num_epochs):
+    for epoch in range(100):
         total_loss = 0
         for index, batch, mask in data_batch:
             images = batch.to(device)
             mask = mask.to(device)
             loss = mpp_trainer(images,mask)
             opt.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             opt.step()
             total_loss += loss.item() / (length)
         print(dt.now(),dt.now()-t1,'In iteration {}, the total loss is {:.5f}'.format(epoch, total_loss))
@@ -201,7 +202,7 @@ def main(args):
         save_dir = args.output
     else:
         save_dir = os.path.dirname(args.particles)
-    output_path = save_dir+'/saved_TT_embedding_{}.npy'.format(epoch)
+    output_path = save_dir+'/saved_TT_embedding_{}.npy'.format(args.num_epochs-1)
     print(dt.now(),' The output vector is saved to %s' % output_path)
     np.save(output_path, all_value_np)
 

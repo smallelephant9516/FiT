@@ -5,13 +5,15 @@ python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_shor
 python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven/join_particles.star -n 20 --simulation --cylinder_mask 192 -b 2
 python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --cylinder_mask 192 -b 2
 python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --datadir /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2 --cylinder_mask 192 --center_mask 192 -b 2 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/noise/ctf.pkl
+python train.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi/join_particles.star -n 20 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi --cylinder_mask 192 --center_mask 192 -b 2 --ctf_path /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi/noise/ctf.pkl
+python train.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi/join_particles.star -n 20 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi --cylinder_mask 192 --center_mask 192 -b 2
 python train.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi/join_particles.star -n 20 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi --cylinder_mask 192 --center_mask 192 -b 2
 python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation
 python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100
 python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 20 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/JoinStar/job508/ctf.pkl
 python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 20 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/JoinStar/job508/ctf.pkl --cylinder_mask 128 --loss cross_entropy
 python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job604/join_particles.star -n 20 --image_patch_size 16
-python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 32 -n 20 -b 1 --ctf_path /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/ctf.pkl
+python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 96 -n 200 -b 1 --ctf_path /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/ctf.pkl
 python train.py /home/jiang/li3221/scratch/practice-filament/10243-tau/JoinStar/job245/join_particles.star -n 100
 python train.py /home/jiang/li3221/scratch/practice-filament/10243-tau/JoinStar/job285/join_particles.star -n 100
 python train.py /net/jiang/scratch/li3221/cryodrgn2/EcACC/Subset_J389/particles.star --datadir /net/jiang/scratch/li3221/cryodrgn2/EcACC/Subset_J389 -n 20 --cylinder_mask 128 -b 2 (Apix=5.1375)
@@ -19,6 +21,14 @@ python train.py /home/jiang/li3221/scratch/filament_cluster/10340/JoinStar/job50
 python train.py /home/jiang/li3221/scratch/filament_cluster/10340/JoinStar/job368/join_particles.star -b 4 -n 20
 python train.py /home/jiang/li3221/scratch/filament_cluster/10340/Class2D/job166/run_it025_data.star -b 16 -n 100
 python train.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 16
+
+python train.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5/join_particles.star -n 100 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5--cylinder_mask 192 --center_mask 192 -b 2 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5/noise/ctf.pkl
+python train_TT.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5/join_particles.star -n 100 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5 --cylinder_mask 192 --center_mask 192 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5/noise/ctf.pkl
+python train_2D.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5/join_particles.star -n 100 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5 --cylinder_mask 192 --center_mask 192 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi5/noise/ctf.pkl
+python train.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2/join_particles.star -n 100 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2 --cylinder_mask 192 --center_mask 192 -b 2 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2/noise/ctf.pkl
+python train_TT.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2/join_particles.star -n 100 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2 --cylinder_mask 192 --center_mask 192 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2/noise/ctf.pkl
+python train_2D.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2/join_particles.star -n 100 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2 --cylinder_mask 192 --center_mask 192 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven_randshift_randpsi2/noise/ctf.pkl
+
 
 # train.py with ctf function
 python train.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star \
@@ -51,11 +61,14 @@ python train_vector.py /net/jiang/scratch/li3221/cryodrgn2/EcACC/All_2D_refine_J
 python train_vector.py /net/jiang/scratch/li3221/Reja/dsaQtest/Class2D/job053/run_it025_data.star -b 32 -n 30
 
 # train_TT.py
-python train_TT.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --cylinder_mask 192 -b 2
-python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100
+python train_TT.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --datadir /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2 --cylinder_mask 192 --center_mask 192 -b 2 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/noise/ctf.pkl
+python train_TT.py /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi/join_particles.star -n 100 --simulation --datadir /net/jiang/scratch/li3221/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi --cylinder_mask 192 --center_mask 192 --ctf_path /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven_randpsi/noise/ctf.pkl
+
+python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 96 -n 100 --ctf_path /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/ctf.pkl
+python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 100 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/JoinStar/job508/ctf.pkl --center_mask 32 --cylinder_mask 64
 
 # train_2D_original.py
-python train_2D.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 16 -n 20 -b 4
+python train_2D.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 16 -n 20 --ctf_path /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/ctf.pkl
 python train_2D_original.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --cylinder_mask 224 --center_mask 224
 
 
