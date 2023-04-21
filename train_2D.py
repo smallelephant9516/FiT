@@ -2,6 +2,7 @@ from Model.ViT_model import ViT
 from Model.MPP import MPP
 from Data_loader import EMData
 from Data_loader.load_data import load_new_particles
+from Data_loader.image_transformation import crop
 
 import torch
 import argparse
@@ -121,6 +122,7 @@ def main(args):
     for index, batch in data_output:
         #import image
         image = batch.to(device)
+        image = crop(image, args.cylinder_mask, args.center_mask)
         value_hidden = model.forward(image).detach().cpu()
         all_value = torch.cat((all_value, value_hidden), 0)
     print(all_value.shape)

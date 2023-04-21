@@ -72,7 +72,7 @@ def main(args):
     n_data, height, width = all_data.shape()
     print(n_data, height, width)
 
-    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:3' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT(
         image_height = args.cylinder_mask,

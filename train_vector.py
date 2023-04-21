@@ -31,7 +31,7 @@ def add_args(parser):
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
-    group.add_argument('-b','--batch_size', type=int, default=4, help='Minibatch size (default: %(default)s)')
+    group.add_argument('-b','--batch_size', type=int, default=32, help='Minibatch size (default: %(default)s)')
     group.add_argument('--heads', type=int, default=4, help='number of heads')
     group.add_argument('--depth', type=int, default=3, help='number of layers')
     group.add_argument('--lr', type=float, default=3e-5, help='Learning rate in Adam optimizer (default: %(default)s)')
@@ -69,7 +69,7 @@ def main(args):
     n_data, length, patch_dim = all_data.shape()
     print(n_data, length, patch_dim)
 
-    device = torch.device('cuda:1' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:3' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT_vector(
         length = length,
@@ -108,7 +108,7 @@ def main(args):
             mask = mask.to(device)
             loss = mpp_trainer(images,mask)
             opt.zero_grad()
-            loss.backward()
+            loss.backward(retain_graph=True)
             opt.step()
             total_loss += loss.item() / (length)
         print(dt.now(),dt.now()-t1,'In iteration {}, the total loss is {:.5f}'.format(epoch, total_loss))

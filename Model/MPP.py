@@ -44,8 +44,8 @@ def create_random_patches(input, mask):
         max_id=len(pos)
         pos_rep = pos.repeat_interleave(multi) * multi + torch.tensor(list(torch.arange(multi)) * len(pos))
         # can be modified later for padding mask in the middle
-        # rand_patch_id[i,:]=pos_rep[torch.randint(0,int(max_id*multi),(n,))]
-        rand_patch_id[i, :] = torch.randint(0, int(max_id * multi), (n,))
+        rand_patch_id[i,:]=pos_rep[torch.randint(0,int(max_id*multi),(n,))]
+        #rand_patch_id[i, :] = torch.randint(0, int(max_id * multi), (n,))
     return rand_patch_id
 
 def image_augmentation(images,h,w,rot,h_shift,w_shift):
@@ -54,9 +54,22 @@ def image_augmentation(images,h,w,rot,h_shift,w_shift):
         T.RandomAffine(degrees=(-rot, rot), translate=(h_shift, w_shift), scale=(1, 1)),
         T.CenterCrop(size=(h, w)),
         T.RandomHorizontalFlip(),
+        T.RandomVerticalFlip(),
         T.Normalize(mean=[0], std=[1])
     ])
     return combined(images)
+
+def image_augmentation_filament(images, h, w, rot=10, h_shift=0.01, w_shift= 0.01 ,augment=True):
+    # images b X l X D X D, rot: degree, h_shift,w_shift: percentage
+    b, l, dim, _ = images.shape
+    images_batch = rearrange(images,'b l h w -> (b l) h w')
+    if augment is True:
+        images_batch = image_augmentation(images_batch,h,w,rot,h_shift,w_shift)
+    else:
+        images_batch = crop(images_batch, h, w)
+        images_batch = T.Normalize(mean=[0], std=[1])(images_batch)
+    images = rearrange(images_batch,'(b l) h w -> b l h w',b=b)
+    return images
 
 
 class Reshape_sequence_image(nn.Module):
@@ -298,7 +311,11 @@ class MPP_3D(nn.Module):
         matrix_mask = transformer.matrix_mask(padding_mask)
         # clone original image for loss
         img = input.clone().detach()
+        img = image_augmentation_filament(img, self.image_height, self.image_width, augment=False)
         b,length,height,width = img.shape
+
+        # add augmentation
+        input = image_augmentation_filament(input, self.image_height, self.image_width, 10, 0.01, 0.01)
 
         # reshape raw image to patches
         p = self.patch_size
@@ -352,7 +369,7 @@ class MPP_3D(nn.Module):
         masked_input = torch.cat((cls_tokens, masked_input), dim=1)
 
         # add positional embeddings to input
-        #masked_input += transformer.pos_embedding[:, :(n + 1)]
+        masked_input += transformer.pos_embedding[:, :(n + 1)]
         #masked_input = transformer.pos_embedding_fre_shift(masked_input)
         masked_input = transformer.dropout(masked_input)
 

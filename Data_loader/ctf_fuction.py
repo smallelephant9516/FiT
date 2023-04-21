@@ -230,8 +230,8 @@ def ctf_correction_torch(all_data_image, defocus, Apix):
     dfang = torch.tensor(defocus[4]).to(all_data_image.device)
     extent = 0.5
     image_number, D, _ = np.shape(all_data_image)
-    x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=True),
-                         np.linspace(-extent, extent, D, endpoint=True))
+    x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=False),
+                         np.linspace(-extent, extent, D, endpoint=False))
     coords = np.stack([x0.ravel(), x1.ravel()], 1)
     coords = torch.tensor(coords).to(all_data_image.device)
     all_image_conv = torch.zeros(np.shape(all_data_image)).to(all_data_image.device)
@@ -254,8 +254,8 @@ def ctf_correction(all_data_image, defocus, Apix, mode='first'):
     dfang = defocus[4]
     extent = 0.5
     image_number, D, _ = np.shape(all_data_image)
-    x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=True),
-                         np.linspace(-extent, extent, D, endpoint=True))
+    x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=False),
+                         np.linspace(-extent, extent, D, endpoint=False))
     coords = np.stack([x0.ravel(), x1.ravel()], 1).astype(np.float32)
     all_image_pf = np.zeros(np.shape(all_data_image))
     print('doing CTF correction with the {} mode'.format(mode))

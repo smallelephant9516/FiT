@@ -83,8 +83,8 @@ def main(args):
     assert length % args.length_patch_size == 0
 
     model = ViT_3D(
-        image_height = height,
-        image_width = width,
+        image_height = args.cylinder_mask,
+        image_width = args.center_mask,
         image_patch_size=args.image_patch_size,
         length = length,
         length_patch_size = args.length_patch_size,

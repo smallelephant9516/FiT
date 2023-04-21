@@ -3,10 +3,13 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
+import torchvision.transforms as T
+
 
 from einops import rearrange, repeat, reduce
 from einops.layers.torch import Rearrange
 
+from Data_loader.image_transformation import crop
 
 # helpers
 
@@ -48,7 +51,8 @@ class SinusoidalPositionalEncoding(nn.Module):
         #self.register_buffer('pe', pe, persistent=False)
 
     def forward(self, x):
-        x = x + self.pe[:, :x.size(1), :]
+        b = len(x)
+        x = x + self.pe[:b, :x.size(1), :]
         return x
 
 class PreNorm(nn.Module):
@@ -222,6 +226,8 @@ class ViT_3D(nn.Module):
 
         self.mask=torch.ones((batch_size,heads,num_patches+1,num_patches+1))
         self.length = length
+        self.height = image_height
+        self.width = image_width
         self.length_patch_size=length_patch_size
         self.num_image_patches = (image_height // patch_height) * (image_width // patch_width)
 
@@ -244,7 +250,7 @@ class ViT_3D(nn.Module):
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.pos_embedding_sincos = posemb_sincos_1d
         learnable_shift_freq = SinusoidalPositionalEncoding(batch_size, dim, num_patches+1)
-        learnable_shift_freq.to('cuda:1')
+        learnable_shift_freq.to('cuda:2')
         self.pos_embedding_fre_shift = learnable_shift_freq
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
@@ -260,6 +266,12 @@ class ViT_3D(nn.Module):
         )
 
     def forward(self, filaments):
+
+        b, n, _, _ = filaments.shape
+        filaments_batch = rearrange(filaments,'b l h w -> (b l) h w')
+        filaments_batch = crop(filaments_batch, self.height, self.width)
+        filaments_batch = T.Normalize(mean=[0], std=[1])(filaments_batch)
+        filaments = rearrange(filaments_batch, '(b l) h w -> b l h w', b=b)
         x = self.to_patch_embedding(filaments)
         b, n, _ = x.shape
 
@@ -330,7 +342,7 @@ class ViT_vector(nn.Module):
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.pos_embedding_sincos = posemb_sincos_1d
         #learnable_shift_freq = SinusoidalPositionalEncoding(batch_size, dim, num_patches+1)
-        #learnable_shift_freq.to('cuda:1')
+        #learnable_shift_freq.to('cuda:2')
         #self.pos_embedding_fre_shift = learnable_shift_freq
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)

@@ -180,11 +180,11 @@ class load_mrcs():
             # mode is first of phase flip or till first peak
             self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
             # apply low pass filter
-            #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+            self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
             np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
 
         # circular normalization
-        self.all_data_image = normalize_image(self.all_data_image, 5)
+        #self.all_data_image = normalize_image(self.all_data_image, 5)
 
         # rotate the image based on the prior
         self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'])
