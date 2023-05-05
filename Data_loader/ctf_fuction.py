@@ -223,7 +223,7 @@ def iht2_center_torch(img):
     return img.real - img.imag
 
 
-def ctf_correction_torch(all_data_image, defocus, Apix):
+def ctf_correction_torch(all_data_image, defocus, Apix, mode = 'mul'):
     defocus = defocus.T
     dfU = torch.tensor(defocus[2]).to(all_data_image.device)
     dfV = torch.tensor(defocus[3]).to(all_data_image.device)
@@ -245,10 +245,31 @@ def ctf_correction_torch(all_data_image, defocus, Apix):
         all_image_conv[i] = image_conv
     return all_image_conv
 
-
-def ctf_correction(all_data_image, defocus, Apix, mode='first'):
+def ctf_correction_torch_pf(all_data_image, defocus, Apix):
     defocus = defocus.T
-    print(defocus[:,0],defocus.shape)
+    dfU = torch.tensor(defocus[2]).to(all_data_image.device)
+    dfV = torch.tensor(defocus[3]).to(all_data_image.device)
+    dfang = torch.tensor(defocus[4]).to(all_data_image.device)
+    extent = 0.5
+    image_number, D, _ = np.shape(all_data_image)
+    x0, x1 = np.meshgrid(np.linspace(-extent, extent, D, endpoint=False),
+                         np.linspace(-extent, extent, D, endpoint=False))
+    coords = np.stack([x0.ravel(), x1.ravel()], 1)
+    coords = torch.tensor(coords).to(all_data_image.device)
+    all_image_conv = torch.zeros(np.shape(all_data_image)).to(all_data_image.device)
+    for i in range(len(all_data_image)):
+        image = all_data_image[i]
+        image_fft = ht2_center_torch(image)
+        ctf = compute_ctf(coords, dfU[i], dfV[i], dfang[i], 300, 2.7, 0.1, apix=Apix, bfactor = 100)
+        ctf = ctf.reshape((D, D)).to(image.device)
+        image_F = -image_fft * torch.sign(ctf)
+        image_conv = iht2_center_torch(image_F)
+        all_image_conv[i] = image_conv
+    return all_image_conv
+
+def ctf_correction(all_data_image, defocus, Apix, mode='phase flip'):
+    defocus = defocus.T
+    #print(defocus[:,0],defocus.shape)
     dfU = defocus[2]
     dfV = defocus[3]
     dfang = defocus[4]
@@ -258,7 +279,7 @@ def ctf_correction(all_data_image, defocus, Apix, mode='first'):
                          np.linspace(-extent, extent, D, endpoint=False))
     coords = np.stack([x0.ravel(), x1.ravel()], 1).astype(np.float32)
     all_image_pf = np.zeros(np.shape(all_data_image))
-    print('doing CTF correction with the {} mode'.format(mode))
+    #print('doing CTF correction with the {} mode'.format(mode))
     if mode == 'phase flip':
         for i in range(len(all_data_image)):
             image = all_data_image[i]

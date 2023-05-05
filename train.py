@@ -68,7 +68,7 @@ def main(args):
 
 
     all_data=load_new(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
-                      datadir=args.datadir,simulation=args.simulation, ctf=args.ctf_path)
+                      datadir=args.datadir,simulation=args.simulation, ctf=args.ctf_path,lazy=args.lazy)
     if args.ctf_path is not None:
         defocus_filament = all_data.defocus_filament
         print(len(defocus_filament))

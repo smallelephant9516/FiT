@@ -125,6 +125,34 @@ def padding_vector(vector, filament_index, length, set_mask=True):
     output=output.astype('float32')
     return output, mask
 
+def padding_lazy(lazy_image, filament_index, length, set_mask=True):
+    vector = lazy_image.copy()
+    n_img = len(lazy_image)
+    max_len = max(map(len, filament_index))
+    vector.append(None)
+    vector = np.array(vector)
+
+    # change the filament index accordingly
+    if length >= max_len:
+        filament_index = filament_index
+    elif length < max_len:
+        filament_index, cut_index = cut_corpus(filament_index, length)
+
+    n_filament = len(filament_index)
+    output = np.empty((n_filament, length), dtype=object)
+    mask = np.zeros((n_filament, length))
+    for i in range(n_filament):
+        lst = np.array(filament_index[i])
+        lst_ones = np.ones(length) * n_img
+        lst_ones[:len(lst)] = lst
+        output[i, :len(lst)] = vector[lst]
+        if set_mask is True:
+            mask[i, (lst_ones < n_img)] = 1
+        else:
+            mask[i, :] = 1
+    return output, mask
+
+
 def defocus_filament(defocus, filament_index, length):
     #print('checking ctf parameter',defocus[0])
     n_img,n_parameters  = defocus.shape
@@ -192,7 +220,7 @@ def rotate_image(image, angle):
 #    return result
 
 def normalize_image(data,sigma=None):
-    print('normalizing the image')
+    #print('normalizing the image')
     mask, background = get_circular_mask(data)
     data_new = np.zeros(np.shape(data))
     for i in range(len(data)):
@@ -209,7 +237,7 @@ def normalize_image(data,sigma=None):
     return data_new
 
 def normalize_filament(data,height,width,sigma=None):
-    print('normalizing the filament')
+    #print('normalizing the filament')
     mask, background = get_filament_mask(data,height,width)
     data_new = np.zeros(np.shape(data))
     for i in range(len(data)):
@@ -226,8 +254,10 @@ def normalize_filament(data,height,width,sigma=None):
     return data_new
 
 def inplane_rotate(data, theta):
+    if len(data) == 1:
+        theta = [theta]
     assert len(data) == len(theta), 'image and theta label should be equal'
-    print('rotating the image based on the psi prior')
+    #print('rotating the image based on the psi prior')
     data_new = np.zeros(np.shape(data))
     data = create_mask(data)
     for i in range(len(data)):

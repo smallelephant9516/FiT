@@ -63,7 +63,7 @@ def main(args):
         set_mask = True
 
     all_data=load_new_particles(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
-                      datadir=args.datadir,simulation=args.simulation,ctf=args.ctf_path)
+                      datadir=args.datadir,simulation=args.simulation,ctf=args.ctf_path,lazy=args.lazy)
     if args.ctf_path is not None:
         defocus = all_data.defocus
         print(defocus.shape)

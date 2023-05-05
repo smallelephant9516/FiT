@@ -1,7 +1,7 @@
 from Model.ViT_model import ViT, ViT_vector
 from Model.MPP import MPP, MPP_vector
 from Data_loader import EMData
-from Data_loader.load_data import load_new_particles, load_vector
+from Data_loader.load_data import load_new_particles, load_vector, image_preprocessing
 from Data_loader.image_transformation import crop
 
 import torch
@@ -24,7 +24,8 @@ def add_args(parser):
 
     group = parser.add_argument_group('Data loader parameters')
     group.add_argument('--cylinder_mask', type=int, default=64,help='mask around the helix')
-    group.add_argument('--center_mask', type=int, default=128, help='mask around the helix')
+    group.add_argument('--center_mask', type=int, default=128, help='mask in the center of the helix')
+    group.add_argument("--lazy", action='store_true', help="not loading the data from the main memory")
     group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
     group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
     group.add_argument("--ctf_path", type=os.path.abspath, help="Use the ctf file in dataset or not")
@@ -65,12 +66,11 @@ def main(args):
         set_mask = True
 
     all_data=load_new_particles(args.particles,args.cylinder_mask,args.center_mask,args.max_len,set_mask=set_mask,
-                      datadir=args.datadir,simulation=args.simulation,ctf=args.ctf_path)
+                      datadir=args.datadir,simulation=args.simulation,ctf=args.ctf_path,lazy=args.lazy)
+    dataframe = all_data.get_dataframe()
     if args.ctf_path is not None:
         defocus = all_data.defocus
         print(defocus.shape)
-    n_data, height, width = all_data.shape()
-    print(n_data, height, width)
 
     device = torch.device('cuda:3' if torch.cuda.is_available() is True else 'cpu')
 
@@ -105,24 +105,44 @@ def main(args):
     t2=dt.now()
     print('passed time for setting up parameter is {}'.format((t2-t1)))
 
+    if args.lazy is True:
+        psi_prior_all = np.array(dataframe['_rlnAnglePsiPrior']).astype('float32')
+
     for epoch in range(args.num_epochs):
         total_loss = 0
+        count = 0
         for index, batch in data_batch:
-            images = batch.to(device)
             ctf = None
             if args.ctf_path is not None:
                 ctf = defocus[index]
+            if args.lazy is True:
+                psi_prior = psi_prior_all[index]
+                batch = image_preprocessing(batch,ctf,psi_prior)
+                batch = torch.tensor(batch)
+            images = batch.to(device)
             loss = mpp_trainer(images,ctf)
             opt.zero_grad()
             loss.backward(retain_graph=True)
             opt.step()
-            total_loss += loss.item() / (width * height)
+            loss_value = loss.item()
+            total_loss += loss_value
+            count += len(batch)
+            if count % 1000 ==0:
+                print('{}/{} of particles has been processed with loss of {}'.format(count,len(dataframe),loss_value/len(batch)))
+        total_loss = total_loss/count
         print(dt.now()-t1,'In iteration {}, the total loss is {:.4f}'.format(epoch, total_loss))
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value = torch.tensor([])
     for index, batch in data_output:
         #import image
+        ctf = None
+        if args.ctf_path is not None:
+            ctf = defocus[index]
+        if args.lazy is True:
+            psi_prior = psi_prior_all[index]
+            batch = image_preprocessing(batch, ctf, psi_prior)
+            batch = torch.tensor(batch)
         image = batch.to(device)
         image = crop(image, args.cylinder_mask, args.center_mask)
         value_hidden = model.forward(image).detach().cpu()
