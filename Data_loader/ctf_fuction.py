@@ -303,7 +303,7 @@ def ctf_correction(all_data_image, defocus, Apix, mode='phase flip'):
     return all_image_pf
 
 def low_pass_filter_images(images, ang, apix=1):
-    print('doing low pass filter on the images')
+    #print('doing low pass filter on the images')
     lowpass_images=np.zeros(images.shape)
     for i in range(len(images)):
         lowpass_images[i] = low_pass_filter(images[i],ang,apix)

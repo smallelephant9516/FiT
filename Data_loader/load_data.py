@@ -15,7 +15,7 @@ def image_preprocessing(images,defocus,psi_prior):
     Apix = defocus[0, 1]
     #images = np.array([x.get() for x in images])
     images = ctf_correction(images, defocus, Apix)
-    # self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+    images = low_pass_filter_images(images, 20, apix=Apix)
     images = normalize_image(images, 5)
     # rotate the image based on the prior
     images = inplane_rotate(images, psi_prior)

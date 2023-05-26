@@ -188,7 +188,7 @@ class MPP(nn.Module):
 
         # add augmentation
         #input = crop(input, self.image_height, self.image_width)
-        input = image_augmentation(input, self.image_height, self.image_width, 10, 0.01, 0.01)
+        input = image_augmentation(input, self.image_height, self.image_width, 10, 0.05, 0.1)
         # reshape raw image to patches
         p = self.patch_size
         input = rearrange(input,
