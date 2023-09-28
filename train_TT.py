@@ -40,6 +40,9 @@ def add_args(parser):
     group.add_argument('--lr', type=float, default=2e-4, help='Learning rate in Adam optimizer (default: %(default)s)')
     group.add_argument('--ignore_padding_mask', action='store_true', help='Ignore the padding mask or not')
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
+    group.add_argument('--vit_cls_token', type=str, default='average', help='The token for the vision transformer')
+    group.add_argument('--vector_cls_token', type=str, default='average', help='The token usage for the vector transformer')
+
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probablility to mask the patch')
@@ -70,9 +73,10 @@ def main(args):
     dataframe = all_data.get_dataframe()
     if args.ctf_path is not None:
         defocus = all_data.defocus
+        print('load data from star file')
         print(defocus.shape)
 
-    device = torch.device('cuda:3' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT(
         image_height = args.cylinder_mask,
@@ -149,7 +153,10 @@ def main(args):
         all_value = torch.cat((all_value, value_hidden), 0)
     print(all_value.shape)
     all_value_np=all_value.detach().numpy()
-    vector = all_value_np[:,1:,:].mean(axis=1)
+    if args.vit_cls_token == 'average':
+        vector = all_value_np[:,1:,:].mean(axis=1)
+    elif args.vit_cls_token =='cls':
+        vector = all_value_np[:, 0, :]
 
     all_data=load_vector(args.particles,args.max_len,set_mask=set_mask, vector=vector)
     n_data, length, patch_dim = all_data.shape()
@@ -197,7 +204,7 @@ def main(args):
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value_np = np.zeros((n_data, args.dim))
-    output_mode='average'
+    output_mode=args.vector_cls_token
     for i, (index, batch, mask) in enumerate(data_output):
         #import image
         image = batch.to(device)

@@ -250,7 +250,7 @@ class ViT_3D(nn.Module):
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.pos_embedding_sincos = posemb_sincos_1d
         learnable_shift_freq = SinusoidalPositionalEncoding(batch_size, dim, num_patches+1)
-        learnable_shift_freq.to('cuda:2')
+        learnable_shift_freq.to('cuda:0')
         self.pos_embedding_fre_shift = learnable_shift_freq
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)

@@ -33,16 +33,18 @@ def get_mask_subset_with_prob(patched_input, prob):
     new_mask.scatter_(1, sampled_indices, 1)
     return new_mask.bool()
 
+# device has some problem
 def create_random_patches(input, mask):
+    device = input.device
     b, n, _ = input.shape
     _, n_mask = mask.shape
     multi = n // n_mask
-    rand_patch_id=torch.zeros((b,n),dtype=torch.int64)
+    rand_patch_id=torch.zeros((b,n),dtype=torch.int64,device=device)
     for i in range(b):
         lst=mask[i]
-        pos = torch.nonzero(lst == 1).flatten().to('cpu')
+        pos = torch.nonzero(lst == 1).flatten().to(device)
         max_id=len(pos)
-        pos_rep = pos.repeat_interleave(multi) * multi + torch.tensor(list(torch.arange(multi)) * len(pos))
+        pos_rep = pos.repeat_interleave(multi) * multi + torch.tensor(list(torch.arange(multi)) * len(pos),device=device)
         # can be modified later for padding mask in the middle
         rand_patch_id[i,:]=pos_rep[torch.randint(0,int(max_id*multi),(n,))]
         #rand_patch_id[i, :] = torch.randint(0, int(max_id * multi), (n,))

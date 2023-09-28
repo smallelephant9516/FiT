@@ -88,7 +88,7 @@ python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinSt
 
 python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/Extract/job619/particles.star -n 20 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/Extract/job619/ctf.pkl --center_mask 96 --cylinder_mask 96
 python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/Class2D/job622/run_it025_data.star -n 100 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/Class2D/job622/ctf.pkl --center_mask 96 --cylinder_mask 96
-python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/Class2D/job626/run_it025_data.star -n 20 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/Class2D/job626/ctf.pkl --center_mask 64 --cylinder_mask 128 --lazy
+python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/Class2D/job626/run_it025_data.star -n 25 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/Class2D/job626/ctf.pkl --center_mask 64 --cylinder_mask 128 --lazy
 python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job632/run_it025_data.star -n 20 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/JoinStar/job632/ctf.pkl --center_mask 64 --cylinder_mask 128 --lazy
 python train_TT.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job508/join_particles.star -n 20 --ctf_path /net/jiang/scratch/li3221/practice-filament/10230-tau/JoinStar/job508/ctf.pkl --center_mask 64 --cylinder_mask 32 --lazy
 

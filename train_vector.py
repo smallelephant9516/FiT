@@ -69,7 +69,7 @@ def main(args):
     n_data, length, patch_dim = all_data.shape()
     print(n_data, length, patch_dim)
 
-    device = torch.device('cuda:3' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT_vector(
         length = length,

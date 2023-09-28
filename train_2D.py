@@ -70,7 +70,7 @@ def main(args):
     n_data, height, width = all_data.shape()
     print(n_data, height, width)
 
-    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT(
         image_height = args.cylinder_mask,
@@ -145,7 +145,7 @@ def main(args):
     else:
         save_dir = os.path.dirname(args.particles)
     print('The output vector is saved to %s' % save_dir)
-    np.save(save_dir+'/saved_particles_embedding_{}.npy'.format(epoch), all_filament_np)
+    np.save(save_dir + '/saved_particles_embedding_{}.npy'.format(epoch), all_filament_np)
     np.save(save_dir + '/particles_emb_{}.npy'.format(epoch), all_value_np[:,1:,:].mean(axis=1))
 
 if __name__ == '__main__':

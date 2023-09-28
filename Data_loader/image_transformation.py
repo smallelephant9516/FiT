@@ -80,7 +80,7 @@ def padding(all_data_image, filament_index, length, set_mask=True):
         filament_index, cut_index = cut_corpus(filament_index, length)
 
     n_filament = len(filament_index)
-    output = np.zeros((n_filament, length, height, width)).astype('float32')
+    output = np.zeros((n_filament, length, height, width),dtype=np.float32)
     mask = np.zeros((n_filament, length))
     print('There are {} number of filaments'.format(n_filament))
 
