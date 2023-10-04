@@ -57,11 +57,11 @@ def image_augmentation(images,h,w,rot,h_shift,w_shift):
         T.CenterCrop(size=(h, w)),
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
-        T.Normalize(mean=[0], std=[1])
+        #T.Normalize(mean=[0], std=[1])
     ])
     return combined(images)
 
-def image_augmentation_filament(images, h, w, rot=10, h_shift=0.01, w_shift= 0.01 ,augment=True):
+def image_augmentation_filament(images, h, w, rot=10, h_shift=0.01, w_shift= 0.1 ,augment=True):
     # images b X l X D X D, rot: degree, h_shift,w_shift: percentage
     b, l, dim, _ = images.shape
     images_batch = rearrange(images,'b l h w -> (b l) h w')
@@ -150,6 +150,7 @@ class MPP(nn.Module):
             mask_prob=0.15,
             replace_prob=0.5,
             random_patch_prob=0.5,
+            inter_seg_distance = 0.01,
             mean=None,
             std=None,
             lossF = 'l2_norm'
@@ -166,6 +167,7 @@ class MPP(nn.Module):
         self.patch_size = patch_size
         self.image_height = image_height
         self.image_width = image_width
+        self.inter_seg_distance = inter_seg_distance
 
         # check the dimension of the height, width and length
         assert image_height % patch_size == 0
@@ -190,7 +192,7 @@ class MPP(nn.Module):
 
         # add augmentation
         #input = crop(input, self.image_height, self.image_width)
-        input = image_augmentation(input, self.image_height, self.image_width, 10, 0.05, 0.1)
+        input = image_augmentation(input, self.image_height, self.image_width, 10, 0.01, w_shift=self.inter_seg_distance)
         # reshape raw image to patches
         p = self.patch_size
         input = rearrange(input,
@@ -248,9 +250,6 @@ class MPP(nn.Module):
         img = rearrange(img, 'b (h p1) (w p2) -> b (h w) (p1 p2) ', p1=p, p2=p).contiguous()
 
         logits = rearrange(logits, 'b (h w) (p1 p2) -> b (h p1) (w p2)', p1=p, h=height//p)
-        #if ctf is not None:
-        #    Apix = 6.9
-        #    logits = ctf_correction_torch(logits, ctf, Apix)
 
         logits = rearrange(logits, 'b (h p1) (w p2) -> b (h w) (p1 p2)', p1=p, p2=p)
 
@@ -275,6 +274,7 @@ class MPP_3D(nn.Module):
             replace_prob=0.5,
             random_patch_prob=0.5,
             augment_prob=0.5,
+            inter_seg_distance=0.01,
             mean=None,
             std=None,
             lossF = 'l2_norm',
@@ -303,14 +303,13 @@ class MPP_3D(nn.Module):
         self.replace_prob = replace_prob
         self.random_patch_prob = random_patch_prob
         self.augment_prob=augment_prob
+        self.inter_seg_distance = inter_seg_distance
 
         # token ids
         self.mask_token = nn.Parameter(torch.randn(1, 1, length_patch_size * (patch_size ** 2)))
 
     def forward(self, input, padding_mask, ctf=None, **kwargs):
         transformer = self.transformer
-        #print('original padding mask',padding_mask)
-        matrix_mask = transformer.matrix_mask(padding_mask)
         # clone original image for loss
         img = input.clone().detach()
         img = image_augmentation_filament(img, self.image_height, self.image_width, augment=False)
@@ -357,26 +356,8 @@ class MPP_3D(nn.Module):
 
         masked_input[bool_mask_replace] = self.mask_token
 
-        # linear embedding of patches
-        if self.patch_emb_type == 'linear':
-            masked_input = transformer.to_patch_embedding[1:4](masked_input)
-        elif self.patch_emb_type == 'conv':
-            masked_input = masked_input.view(-1,pl,p,p)
-            masked_input = transformer.to_patch_embedding_conv(masked_input).flatten(1,3).view(b,patch_length,-1)
-            masked_input = transformer.LN_embedding(masked_input)
 
-        # add cls token to input sequence
-        b, n, _ = masked_input.shape
-        cls_tokens = repeat(transformer.cls_token, '() n d -> b n d', b=b)
-        masked_input = torch.cat((cls_tokens, masked_input), dim=1)
-
-        # add positional embeddings to input
-        masked_input += transformer.pos_embedding[:, :(n + 1)]
-        #masked_input = transformer.pos_embedding_fre_shift(masked_input)
-        masked_input = transformer.dropout(masked_input)
-
-        # get generator output and get mpp loss
-        masked_input = transformer.transformer(masked_input, matrix_mask, **kwargs)
+        masked_input = transformer(masked_input, padding_mask,crop=False)
 
         cls_logits = self.to_bits(masked_input)
         logits = cls_logits[:, 1:, :]

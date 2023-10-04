@@ -34,7 +34,7 @@ def posemb_sincos_1d(patches, temperature = 10000, dtype = torch.float32):
 
 
 class SinusoidalPositionalEncoding(nn.Module):
-    def __init__(self, batch_size, dim, max_len=2048, device='cuda:2'):
+    def __init__(self, batch_size, dim, max_len=2048, device='cuda:0'):
         super(SinusoidalPositionalEncoding, self).__init__()
         self.dim = dim
         self.max_len = max_len
@@ -44,9 +44,9 @@ class SinusoidalPositionalEncoding(nn.Module):
 
         position = torch.arange(0, max_len, dtype=torch.float).to(device)
         position = repeat(position, 'n -> b n', b=batch_size)
-        print(position.shape)
+        #print(position.shape)
         self.pe = torch.sin(position * self.freq + self.shift).to(device)
-        print(self.pe .shape)
+        #print(self.pe .shape)
         self.pe = repeat(self.pe, 'm n -> m n d', d=dim)
         #self.register_buffer('pe', pe, persistent=False)
 
@@ -117,8 +117,6 @@ class Attention(nn.Module):
         #apply mask
         dots = torch.add(dots,mask)
 
-        #print('final dots value', dots[0, 0, 0, :])
-        #print('The shape of attention is',dots.shape)
         attn = self.attend(dots)
         attn = self.dropout(attn)
 
@@ -157,7 +155,7 @@ class Transformer(nn.Module):
 
 
 class ViT(nn.Module):
-    def __init__(self, *, image_height, image_width, image_patch_size, num_classes, dim, depth, heads, mlp_dim, pool='cls',
+    def __init__(self, *, image_height, image_width, image_patch_size, dim, depth, heads, mlp_dim, pool='cls',
                  dim_head=64, dropout=0., emb_dropout=0.):
         super().__init__()
         patch_height, patch_width = pair(image_patch_size)
@@ -186,10 +184,6 @@ class ViT(nn.Module):
         self.pool = pool
         self.to_latent = nn.Identity()
 
-        self.mlp_head = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, num_classes)
-        )
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
@@ -205,13 +199,12 @@ class ViT(nn.Module):
         out = hid_dim.mean(dim=1) if self.pool == 'mean' else x[:, 0]
 
         out = self.to_latent(out)
-        # out = self.mlp_head(out)
         return hid_dim
 
 
 class ViT_3D(nn.Module):
-    def __init__(self, *, image_height, image_width, image_patch_size, length, length_patch_size, num_classes, dim,
-                 depth, heads, batch_size, mlp_dim, pool='cls', dim_head=64, dropout=0., emb_dropout=0.):
+    def __init__(self, *, image_height, image_width, image_patch_size, length, length_patch_size, dim,
+                 depth, heads, batch_size, mlp_dim, pool='cls', dim_head=64, dropout=0., emb_dropout=0.,):
         super().__init__()
 
         self.heads=heads
@@ -224,18 +217,19 @@ class ViT_3D(nn.Module):
         num_patches = (image_height // patch_height) * (image_width // patch_width) * (length // length_patch_size)
         patch_dim = patch_height * patch_width * length_patch_size
 
-        self.mask=torch.ones((batch_size,heads,num_patches+1,num_patches+1))
+        self.heads = heads
+        self.num_patches = num_patches
+        self.length_patch_size = length_patch_size
+        self.patch_height = patch_height
+        self.patch_width = patch_width
         self.length = length
         self.height = image_height
         self.width = image_width
-        self.length_patch_size=length_patch_size
         self.num_image_patches = (image_height // patch_height) * (image_width // patch_width)
 
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.to_patch_embedding = nn.Sequential(
-            Rearrange('b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=patch_height, p2=patch_width,
-                      pl=length_patch_size),
             nn.LayerNorm(patch_dim),
             nn.Linear(patch_dim, dim),
             nn.LayerNorm(dim),
@@ -260,20 +254,22 @@ class ViT_3D(nn.Module):
         self.pool = pool
         self.to_latent = nn.Identity()
 
-        self.mlp_head = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, num_classes)
-        )
-
-    def forward(self, filaments):
-
-        b, n, _, _ = filaments.shape
-        filaments_batch = rearrange(filaments,'b l h w -> (b l) h w')
-        filaments_batch = crop(filaments_batch, self.height, self.width)
-        filaments_batch = T.Normalize(mean=[0], std=[1])(filaments_batch)
-        filaments = rearrange(filaments_batch, '(b l) h w -> b l h w', b=b)
+    def forward(self, filaments, mask=None, crop=True):
+        b, n = filaments.shape[:2]
+        if crop is True:
+            filaments_batch = rearrange(filaments,'b l h w -> (b l) h w')
+            filaments_batch = crop(filaments_batch, self.height, self.width)
+            filaments_batch = T.Normalize(mean=[0], std=[1])(filaments_batch)
+            filaments = rearrange(filaments_batch, '(b l) h w -> b l h w', b=b)
+            filaments = rearrange(filaments, 'b (l pl) (h p1) (w p2) -> b (l h w) (pl p1 p2)', p1=self.patch_height, p2=self.patch_width,
+                      pl=self.length_patch_size)
         x = self.to_patch_embedding(filaments)
         b, n, _ = x.shape
+
+        if mask is None:
+            mask = torch.ones((b,self.heads,self.num_patches+1,self.num_patches+1))
+        else:
+            mask = self.matrix_mask(mask)
 
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
@@ -281,9 +277,8 @@ class ViT_3D(nn.Module):
         #x = self.pos_embedding_fre_shift(x)
         x = self.dropout(x)
 
-        hid_dim = self.transformer(x, self.mask)
+        hid_dim = self.transformer(x, mask)
 
-        #print(self.mask[0,0,-100:,0])
 
         out = hid_dim.mean(dim=1) if self.pool == 'mean' else x[:, 0]
 
@@ -297,13 +292,12 @@ class ViT_3D(nn.Module):
 
         cls = torch.ones(b, 1).to(mask.get_device())
 
+
         # reshape the mask to (b,n) n is the number of the patches
         mask = rearrange(mask, 'b (n lp) -> (b n) lp', lp=self.length_patch_size)
         mask = reduce(mask, 'b lp -> b', 'max')
         mask = rearrange(mask, '(b n) -> b n', n=(self.length//self.length_patch_size))
         mask = repeat(mask, 'b n -> b (n repeat)', repeat=self.num_image_patches)
-        #print(mask.shape)
-
         mask = torch.cat((cls, mask), 1)
         self.mask_cls=mask
 
@@ -317,7 +311,7 @@ class ViT_3D(nn.Module):
 
 # vit for vectors
 class ViT_vector(nn.Module):
-    def __init__(self, *, length, patch_dim, num_classes, dim,
+    def __init__(self, *, length, patch_dim, dim,
                  depth, heads, batch_size, mlp_dim, pool='cls', dim_head=64, dropout=0., emb_dropout=0.):
         super().__init__()
 
@@ -352,10 +346,6 @@ class ViT_vector(nn.Module):
         self.pool = pool
         self.to_latent = nn.Identity()
 
-        self.mlp_head = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, num_classes)
-        )
 
     def forward(self, filaments):
         x = self.to_patch_embedding(filaments)

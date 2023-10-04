@@ -76,7 +76,6 @@ def main(args):
         image_height = args.cylinder_mask,
         image_width = args.center_mask,
         image_patch_size=args.image_patch_size,
-        num_classes=1000,
         dim=args.dim,
         depth=args.depth,
         heads=args.heads,

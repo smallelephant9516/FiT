@@ -31,6 +31,8 @@ def add_args(parser):
     group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
     group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
     group.add_argument("--ctf_path", type=os.path.abspath, help="Use the ctf file in dataset or not")
+    group.add_argument("--lazy", action='store_true', help="not loading the data from the main memory")
+    group.add_argument("--z_percent", type=float, default=0.1, help="the inter-box distance in terms of percent")
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
@@ -42,6 +44,7 @@ def add_args(parser):
     group.add_argument('--lr', type=float, default=3e-5, help='Learning rate in Adam optimizer (default: %(default)s)')
     group.add_argument('--ignore_padding_mask', action='store_true', help='Parallelize training across all detected GPUs')
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
+    group.add_argument('--vit_cls_token', type=str, default='average', help='The token for the vision transformer')
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probability of using token in masked prediction task')
@@ -75,7 +78,7 @@ def main(args):
     n_data, length, height, width = all_data.shape()
     print(n_data, length, height, width)
 
-    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
 
     # check the dimension of the height, width and length
     assert height % args.image_patch_size == 0
@@ -88,7 +91,6 @@ def main(args):
         image_patch_size=args.image_patch_size,
         length = length,
         length_patch_size = args.length_patch_size,
-        num_classes=1000,
         dim=args.dim,
         depth=args.depth,
         heads=args.heads,
@@ -109,7 +111,8 @@ def main(args):
         random_patch_prob=args.random_patch_prob,  # probability of randomly replacing a token being used for mpp
         replace_prob=args.replace_prob,       # probability of replacing a token being used for mpp with the mask token
         augment_prob=args.augment_prob,
-        lossF= args.loss
+        lossF= args.loss,
+        inter_seg_distance=args.z_percent,
     )
     mpp_trainer.to(device)
     opt = torch.optim.Adam(mpp_trainer.parameters(), lr=args.lr)
@@ -141,10 +144,9 @@ def main(args):
         image = batch.to(device)
         mask = mask.to(device)
         #generate mask
-        model.matrix_mask(mask)
         # pass through the model
         mask_patches=model.mask_cls
-        value_hidden = model.forward(image)
+        value_hidden = model.forward(image,mask)
         value_hidden[mask_patches == 0, :] = 0
         if output_mode == 'average':
             value_sum = value_hidden[:, 1:, :].sum(axis=1).detach().cpu().numpy()

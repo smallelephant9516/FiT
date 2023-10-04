@@ -37,6 +37,7 @@ def add_args(parser):
     group.add_argument('--lr', type=float, default=3e-5, help='Learning rate in Adam optimizer (default: %(default)s)')
     group.add_argument('--ignore_padding_mask', action='store_true', help='Parallelize training across all detected GPUs')
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
+    group.add_argument('--vector_cls_token', type=str, default='average', help='The token usage for the vector transformer')
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probability of using token in masked prediction task')
@@ -74,7 +75,6 @@ def main(args):
     model = ViT_vector(
         length = length,
         patch_dim = patch_dim,
-        num_classes=1000,
         dim=args.dim,
         depth=args.depth,
         heads=args.heads,

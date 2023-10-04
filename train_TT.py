@@ -26,9 +26,10 @@ def add_args(parser):
     group.add_argument('--cylinder_mask', type=int, default=64,help='mask around the helix')
     group.add_argument('--center_mask', type=int, default=128, help='mask in the center of the helix')
     group.add_argument("--lazy", action='store_true', help="not loading the data from the main memory")
-    group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
+    group.add_argument("--datadir",help="The path for the relion root path")
     group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
     group.add_argument("--ctf_path", type=os.path.abspath, help="Use the ctf file in dataset or not")
+    group.add_argument("--z_percent", type=float, default=0.1, help="the inter-box distance in terms of percent")
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
@@ -82,7 +83,6 @@ def main(args):
         image_height = args.cylinder_mask,
         image_width = args.center_mask,
         image_patch_size=args.image_patch_size,
-        num_classes=1000,
         dim=args.dim,
         depth=args.depth,
         heads=args.heads,
@@ -101,6 +101,7 @@ def main(args):
         random_patch_prob=args.random_patch_prob,  # probability of randomly replacing a token being used for mpp
         replace_prob=args.replace_prob,       # probability of replacing a token being used for mpp with the mask token
         lossF=args.loss,
+        inter_seg_distance= args.z_percent,
     )
     mpp_trainer.to(device)
     opt = torch.optim.Adam(mpp_trainer.parameters(), lr=args.lr)
@@ -165,7 +166,6 @@ def main(args):
     model = ViT_vector(
         length = length,
         patch_dim = patch_dim,
-        num_classes=1000,
         dim=args.dim,
         depth=args.depth,
         heads=args.heads,
