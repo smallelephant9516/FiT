@@ -42,7 +42,7 @@ def add_args(parser):
     group.add_argument('--image_patch_size', type=int, default=32, help='image patch size (pix)')
     group.add_argument('--length_patch_size', type=int, default=1, help='length patch size (pix)')
     group.add_argument('--lr', type=float, default=3e-5, help='Learning rate in Adam optimizer (default: %(default)s)')
-    group.add_argument('--ignore_padding_mask', action='store_true', help='Parallelize training across all detected GPUs')
+    group.add_argument('--ignore_padding_mask', action='store_true', help='not using the padding mask to mask the transformer')
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
     group.add_argument('--vit_cls_token', type=str, default='average', help='The token for the vision transformer')
 
@@ -79,11 +79,6 @@ def main(args):
     print(n_data, length, height, width)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
-
-    # check the dimension of the height, width and length
-    assert height % args.image_patch_size == 0
-    assert width % args.image_patch_size == 0
-    assert length % args.length_patch_size == 0
 
     model = ViT_3D(
         image_height = args.cylinder_mask,
@@ -140,10 +135,12 @@ def main(args):
     all_value_np = np.zeros((n_data, args.dim))
     output_mode='average'
     for i, (index, batch, mask) in enumerate(data_output):
+        model.eval()
         #import image
         image = batch.to(device)
         mask = mask.to(device)
         #generate mask
+        model.matrix_mask(mask)
         # pass through the model
         mask_patches=model.mask_cls
         value_hidden = model.forward(image,mask)

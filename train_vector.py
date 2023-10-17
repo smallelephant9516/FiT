@@ -35,7 +35,7 @@ def add_args(parser):
     group.add_argument('--heads', type=int, default=4, help='number of heads')
     group.add_argument('--depth', type=int, default=3, help='number of layers')
     group.add_argument('--lr', type=float, default=3e-5, help='Learning rate in Adam optimizer (default: %(default)s)')
-    group.add_argument('--ignore_padding_mask', action='store_true', help='Parallelize training across all detected GPUs')
+    group.add_argument('--ignore_padding_mask', action='store_true', help='not using the padding mask to mask the transformer')
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
     group.add_argument('--vector_cls_token', type=str, default='average', help='The token usage for the vector transformer')
 

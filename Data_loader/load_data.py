@@ -15,8 +15,8 @@ def image_preprocessing(images,defocus,psi_prior):
     Apix = defocus[0, 1]
     #images = np.array([x.get() for x in images])
     images = ctf_correction(images, defocus, Apix)
-    images = low_pass_filter_images(images, 20, apix=Apix)
-    images = normalize_image(images, 5)
+    #images = low_pass_filter_images(images, 20, apix=Apix)
+    images = normalize_image(images, 3)
     # rotate the image based on the prior
     images = inplane_rotate(images, psi_prior)
     # crop the image based on the dimension provided
@@ -132,12 +132,12 @@ class load_mrcs():
             #self.all_data_image = np.concatenate((type1, type2), axis=0)
 
             # load simulated particles directly
-            data_path = self.folder + 'noise/' + 'all_image_ctf.mrcs'
+            data_path = self.folder + 'noise/' + 'images_ctf.mrcs'
             with mrcfile.open(data_path) as mrc:
                 self.all_data_image = mrc.data
 
             # print(self.all_data_image.min(), self.all_data_image.max())
-            self.all_data_image = add_noise_SNR(self.all_data_image, 0.1)
+            self.all_data_image = add_noise_SNR(self.all_data_image, 0.01)
             # print(self.all_data_image.min(), self.all_data_image.max())
         else:
             image_order = list(self.dataframe['filename'])
@@ -160,32 +160,32 @@ class load_mrcs():
                     self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
             else:
                 self.all_data_image = np.array([x.get() for x in dataset])
-                if self.ctf is not None:
-                    self.defocus = np.load(self.ctf, allow_pickle=True)
-                    Apix = self.defocus[0,1]
-                    defocus = self.defocus
-                    self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
+        if self.ctf is not None:
+            self.defocus = np.load(self.ctf, allow_pickle=True)
+            Apix = self.defocus[0,1]
+            defocus = self.defocus
+            self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
 
-                    print('doing ctf correction on image')
-                    np.save(self.folder+'before_correction.npy', self.all_data_image[0])
-                    #defocus = np.array(self.dataframe[['_rlnDefocusU', '_rlnDefocusV', '_rlnDefocusAngle']]).astype('float32')
-                    # mode is first of phase flip or till first peak
-                    self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
-                    # apply low pass filter
-                    #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
-                    np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
+            print('doing ctf correction on image')
+            np.save(self.folder+'before_correction.npy', self.all_data_image[0])
+            #defocus = np.array(self.dataframe[['_rlnDefocusU', '_rlnDefocusV', '_rlnDefocusAngle']]).astype('float32')
+            # mode is first of phase flip or till first peak
+            self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
+            # apply low pass filter
+            #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+            np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
 
-                # circular normalization
-                self.all_data_image = normalize_image(self.all_data_image, 5)
+        # circular normalization
+        self.all_data_image = normalize_image(self.all_data_image, 5)
 
-                # rotate the image based on the prior
-                self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'])
-                # crop the image based on the dimension provided
-                self.all_data_image = self.all_data_image.astype('float32')
-                self.n_img, _, _ =np.shape(self.all_data_image)
-                print('total number of particles are {}'.format(self.n_img))
-                self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len,set_mask=self.set_mask)
-                print(self.data.min(), self.data.max())
+        # rotate the image based on the prior
+        self.all_data_image = inplane_rotate(self.all_data_image, self.dataframe['_rlnAnglePsiPrior'])
+        # crop the image based on the dimension provided
+        self.all_data_image = self.all_data_image.astype('float32')
+        self.n_img, _, _ =np.shape(self.all_data_image)
+        print('total number of particles are {}'.format(self.n_img))
+        self.data, self.mask = padding(self.all_data_image, self.filament_index, self.max_len,set_mask=self.set_mask)
+        print(self.data.min(), self.data.max())
 
     def particle_images(self):
         return self.all_data_image

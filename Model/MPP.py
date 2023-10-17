@@ -52,12 +52,14 @@ def create_random_patches(input, mask):
 
 def image_augmentation(images,h,w,rot,h_shift,w_shift):
     # images b X D X D, rot: degree, h_shift,w_shift: percentage
+    mean = 1-torch.rand((1,))*2
+    std = 0.5+torch.rand((1,)) * 2
     combined = T.Compose([
         T.RandomAffine(degrees=(-rot, rot), translate=(h_shift, w_shift), scale=(1, 1)),
         T.CenterCrop(size=(h, w)),
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
-        #T.Normalize(mean=[0], std=[1])
+        T.Normalize(mean=[0], std=[1])
     ])
     return combined(images)
 
@@ -69,7 +71,7 @@ def image_augmentation_filament(images, h, w, rot=10, h_shift=0.01, w_shift= 0.1
         images_batch = image_augmentation(images_batch,h,w,rot,h_shift,w_shift)
     else:
         images_batch = crop(images_batch, h, w)
-        images_batch = T.Normalize(mean=[0], std=[1])(images_batch)
+        #images_batch = T.Normalize(mean=[0], std=[1])(images_batch)
     images = rearrange(images_batch,'(b l) h w -> b l h w',b=b)
     return images
 
@@ -237,7 +239,7 @@ class MPP(nn.Module):
         masked_input = torch.cat((cls_tokens, masked_input), dim=1)
 
         # add positional embeddings to input
-        masked_input += transformer.pos_embedding[:, :(n + 1)]
+        #masked_input += transformer.pos_embedding[:, :(n + 1)]
         #masked_input += transformer.pos_embedding_sincos
         masked_input = transformer.dropout(masked_input)
 
@@ -316,7 +318,8 @@ class MPP_3D(nn.Module):
         b,length,height,width = img.shape
 
         # add augmentation
-        input = image_augmentation_filament(input, self.image_height, self.image_width, 10, 0.01, 0.01)
+        input = image_augmentation_filament(input, self.image_height, self.image_width,
+                                            rot=0, h_shift=0.01, w_shift=self.inter_seg_distance)
 
         # reshape raw image to patches
         p = self.patch_size
@@ -357,7 +360,7 @@ class MPP_3D(nn.Module):
         masked_input[bool_mask_replace] = self.mask_token
 
 
-        masked_input = transformer(masked_input, padding_mask,crop=False)
+        masked_input = transformer(masked_input, padding_mask,reshape_filament=False)
 
         cls_logits = self.to_bits(masked_input)
         logits = cls_logits[:, 1:, :]

@@ -3,6 +3,7 @@ from Model.MPP import MPP, MPP_vector
 from Data_loader import EMData
 from Data_loader.load_data import load_new_particles, load_vector, image_preprocessing
 from Data_loader.image_transformation import crop
+from Data_loader.ctf_fuction import low_pass_filter_torch
 
 import torch
 import argparse
@@ -43,7 +44,10 @@ def add_args(parser):
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
     group.add_argument('--vit_cls_token', type=str, default='average', help='The token for the vision transformer')
     group.add_argument('--vector_cls_token', type=str, default='average', help='The token usage for the vector transformer')
-
+    group.add_argument('--dyn_lp', action='store_true', default=False, help='highest resolution to reach to')
+    group.add_argument('--max_res', type=int, default=20, help='highest resolution to reach to')
+    group.add_argument('--min_res', type=int, default=40, help='lowest resolution to start with')
+    group.add_argument('--res_step', type=float, default=0, help='change in certain resolution')
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probablility to mask the patch')
@@ -113,6 +117,14 @@ def main(args):
     if args.lazy is True:
         psi_prior_all = np.array(dataframe['_rlnAnglePsiPrior']).astype('float32')
 
+    end_res = args.max_res
+    if args.dyn_lp is True:
+        start_res = args.min_res
+        current_res = args.min_res
+        if args.res_step is None:
+            res_step = (start_res-end_res)/args.num_epochs
+        else:
+            res_step =  args.res_step
     for epoch in range(args.num_epochs):
         total_loss = 0
         count = 0
@@ -125,6 +137,14 @@ def main(args):
                 batch = image_preprocessing(batch,ctf,psi_prior)
                 batch = torch.tensor(batch)
             images = batch.to(device)
+            if args.dyn_lp is True:
+                current_res = current_res - res_step
+                if current_res < end_res:
+                    images = images
+                else:
+                    images = low_pass_filter_torch(images,current_res, ctf[0,1])
+            else:
+                images = low_pass_filter_torch(images, end_res, ctf[0, 1])
             loss = mpp_trainer(images,ctf)
             opt.zero_grad()
             loss.backward(retain_graph=True)
@@ -139,6 +159,7 @@ def main(args):
 
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value = torch.tensor([])
+    model.eval()
     for index, batch in data_output:
         #import image
         ctf = None
@@ -205,6 +226,7 @@ def main(args):
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value_np = np.zeros((n_data, args.dim))
     output_mode=args.vector_cls_token
+    model.eval()
     for i, (index, batch, mask) in enumerate(data_output):
         #import image
         image = batch.to(device)
