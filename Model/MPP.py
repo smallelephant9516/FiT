@@ -194,7 +194,7 @@ class MPP(nn.Module):
 
         # add augmentation
         #input = crop(input, self.image_height, self.image_width)
-        input = image_augmentation(input, self.image_height, self.image_width, 10, 0.01, w_shift=self.inter_seg_distance)
+        input = image_augmentation(input, self.image_height, self.image_width, 0, 0.01, w_shift=self.inter_seg_distance)
         # reshape raw image to patches
         p = self.patch_size
         input = rearrange(input,
@@ -385,7 +385,13 @@ class MPP_3D(nn.Module):
 
         logits = self.normLayer(logits)
 
-        mpp_loss = self.loss(logits, img, mask)
+        #mask_loss = mask
+        b, n, _ = input.shape
+        _, n_mask = padding_mask.shape
+        multi = n // n_mask
+        mask_loss = padding_mask.repeat_interleave(multi, dim=1) == 1
+
+        mpp_loss = self.loss(logits, img, mask_loss)
 
         return mpp_loss
 
@@ -467,6 +473,7 @@ class MPP_vector(nn.Module):
 
         masked_input[bool_mask_replace] = self.mask_token
 
+        ## pass through transformer
         # linear embedding of patches
         masked_input = transformer.to_patch_embedding(masked_input)
 
@@ -477,7 +484,7 @@ class MPP_vector(nn.Module):
 
         # add positional embeddings to input
         #masked_input += transformer.pos_embedding[:, :(n + 1)]
-        masked_input += transformer.pos_embedding_sincos(masked_input)
+        #masked_input += transformer.pos_embedding_sincos(masked_input)
         #masked_input = transformer.pos_embedding_fre_shift(masked_input)
         masked_input = transformer.dropout(masked_input)
 
@@ -487,6 +494,7 @@ class MPP_vector(nn.Module):
         cls_logits = self.to_bits(masked_input)
         logits = cls_logits[:, 1:, :]
 
-        mpp_loss = self.loss(logits, img, mask)
+        mask_loss = padding_mask == 1
+        mpp_loss = self.loss(logits, img, mask_loss)
 
         return mpp_loss

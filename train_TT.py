@@ -81,7 +81,7 @@ def main(args):
         print('load data from star file')
         print(defocus.shape)
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT(
         image_height = args.cylinder_mask,
@@ -118,6 +118,8 @@ def main(args):
         psi_prior_all = np.array(dataframe['_rlnAnglePsiPrior']).astype('float32')
 
     end_res = args.max_res
+    apix = defocus[0,1]
+    print(apix)
     if args.dyn_lp is True:
         start_res = args.min_res
         current_res = args.min_res
@@ -142,9 +144,10 @@ def main(args):
                 if current_res < end_res:
                     images = images
                 else:
-                    images = low_pass_filter_torch(images,current_res, ctf[0,1])
+                    images = low_pass_filter_torch(images,current_res, apix)
             else:
-                images = low_pass_filter_torch(images, end_res, ctf[0, 1])
+                #images = low_pass_filter_torch(images, end_res, apix)
+                images = images
             loss = mpp_trainer(images,ctf)
             opt.zero_grad()
             loss.backward(retain_graph=True)

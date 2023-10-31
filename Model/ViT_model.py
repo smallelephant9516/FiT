@@ -10,6 +10,7 @@ from einops import rearrange, repeat, reduce
 from einops.layers.torch import Rearrange
 
 from Data_loader.image_transformation import crop
+from Model.RoPE import RotaryEmbedding
 
 # helpers
 
@@ -99,6 +100,7 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
         self.mask=torch.ones((1))
+        self.rotary_emb = RotaryEmbedding(dim = 32, learned_freq=False)
 
     def forward(self, x):
 
@@ -111,6 +113,8 @@ class Attention(nn.Module):
 
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
+        q = self.rotary_emb.rotate_queries_or_keys(q)
+        k = self.rotary_emb.rotate_queries_or_keys(k)
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
 
@@ -191,7 +195,7 @@ class ViT(nn.Module):
 
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(n + 1)]
+        #x += self.pos_embedding[:, :(n + 1)]
         x = self.dropout(x)
 
         hid_dim = self.transformer(x)
@@ -354,7 +358,7 @@ class ViT_vector(nn.Module):
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
         #x += self.pos_embedding[:, :(n + 1)]
-        x += self.pos_embedding_sincos(x)
+        #x += self.pos_embedding_sincos(x)
         #x = self.pos_embedding_fre_shift(x)
         x = self.dropout(x)
 

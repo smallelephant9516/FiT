@@ -61,7 +61,7 @@ def get_circular_mask_single(data, R=None):
 
 def low_pass_filter(image, ang, apix=1):
     D, _ = np.shape(image)
-    R_pix = int(np.ceil(D / (ang / apix)))
+    R_pix = int(np.ceil(D / (ang / 2 * apix)))
     image_fft = ht2_center(image)
     mask = get_circular_mask_single(image_fft, R=R_pix)
     new_image_fft = np.zeros((D, D))

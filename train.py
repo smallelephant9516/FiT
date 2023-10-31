@@ -45,6 +45,10 @@ def add_args(parser):
     group.add_argument('--ignore_padding_mask', action='store_true', help='not using the padding mask to mask the transformer')
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
     group.add_argument('--vit_cls_token', type=str, default='average', help='The token for the vision transformer')
+    group.add_argument('--dyn_lp', action='store_true', default=False, help='highest resolution to reach to')
+    group.add_argument('--max_res', type=int, default=20, help='highest resolution to reach to')
+    group.add_argument('--min_res', type=int, default=40, help='lowest resolution to start with')
+    group.add_argument('--res_step', type=float, default=0, help='change in certain resolution')
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probability of using token in masked prediction task')

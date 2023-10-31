@@ -137,7 +137,7 @@ class load_mrcs():
                 self.all_data_image = mrc.data
 
             # print(self.all_data_image.min(), self.all_data_image.max())
-            self.all_data_image = add_noise_SNR(self.all_data_image, 0.01)
+            self.all_data_image = add_noise_SNR(self.all_data_image, 0.05)
             # print(self.all_data_image.min(), self.all_data_image.max())
         else:
             image_order = list(self.dataframe['filename'])
@@ -167,13 +167,13 @@ class load_mrcs():
             self.defocus_filament = defocus_filament(defocus, self.filament_index, self.max_len)
 
             print('doing ctf correction on image')
-            np.save(self.folder+'before_correction.npy', self.all_data_image[0])
+            #np.save(self.folder+'before_correction.npy', self.all_data_image[0])
             #defocus = np.array(self.dataframe[['_rlnDefocusU', '_rlnDefocusV', '_rlnDefocusAngle']]).astype('float32')
             # mode is first of phase flip or till first peak
             self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
             # apply low pass filter
-            #self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
-            np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
+            self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+            #np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
 
         # circular normalization
         self.all_data_image = normalize_image(self.all_data_image, 5)
