@@ -1,7 +1,6 @@
 import numpy as np
-import cv2
+import numpy.fft as fft
 import torch
-import torchvision.transforms as T
 
 
 def fft2_center(img):
@@ -79,12 +78,12 @@ def low_pass_filter_torch(images: torch.Tensor, angstrom: float, apix: float):
     """
     N, H, W = images.shape
 
-    # Step 1: Compute the 2D Fourier Transform of the input image
+    # Compute the 2D Fourier Transform of the input image
     # Shift zero-frequency component to center and ensure result is complex
     fft = torch.fft.fft2(images, dim=(-2, -1))
     fft_shift = torch.fft.fftshift(fft, dim=(-2, -1))
 
-    # Step 2: Construct the low-pass filter (a circular mask)
+    # Construct the low-pass filter (a circular mask)
     cy, cx = int(H/2), int(W/2)  # Center of the mask
     x = torch.arange(W, dtype=torch.float).view(1, -1).repeat(H, 1) - cx
     y = torch.arange(H, dtype=torch.float).view(-1, 1).repeat(1, W) - cy
@@ -97,12 +96,47 @@ def low_pass_filter_torch(images: torch.Tensor, angstrom: float, apix: float):
     # Apply the mask to each image in the batch
     filtered_fft_shift = fft_shift * mask.unsqueeze(0)
 
-    # Step 3: Inverse operations (shift and inverse Fourier transform)
+    # Inverse operations (shift and inverse Fourier transform)
     filtered_fft = torch.fft.ifftshift(filtered_fft_shift, dim=(-2, -1))
     filtered_images = torch.fft.ifft2(filtered_fft, dim=(-2, -1))
 
     # The result is complex, with the real part being the filtered image
     return filtered_images.real
+
+def low_pass_filter_numpy(images: np.ndarray, angstrom: float, apix: float) -> np.ndarray:
+    """
+    Apply a low-pass filter in the Fourier domain to a batch of images.
+
+    :param images: Batch of images of shape (N, H, W)
+    :param angstrom: low pass to specific angstrom
+    :param apix: pixel size
+    :return: Filtered images
+    """
+    N, H, W = images.shape
+
+    # Compute the 2D Fourier Transform of the input image
+    # Shift zero-frequency component to center
+    fft_images = fft.fft2(images, axes=(-2, -1))
+    fft_shift = fft.fftshift(fft_images, axes=(-2, -1))
+
+    # Construct the low-pass filter (a circular mask)
+    cy, cx = int(H/2), int(W/2)  # Center of the mask
+    x = np.arange(W, dtype=np.float32).reshape(1, -1) - cx
+    y = np.arange(H, dtype=np.float32).reshape(-1, 1) - cy
+    radius = np.sqrt(x*x + y*y)
+    max_radius = np.sqrt(cx*cx + cy*cy)
+    cutoff_frequency_ratio = 2 * apix / angstrom
+    mask = radius <= (max_radius * cutoff_frequency_ratio)
+
+    # Apply the mask to each image in the batch
+    filtered_fft_shift = fft_shift * mask
+
+    # Inverse operations (shift and inverse Fourier transform)
+    filtered_fft = fft.ifftshift(filtered_fft_shift, axes=(-2, -1))
+    filtered_images = fft.ifft2(filtered_fft, axes=(-2, -1))
+
+    # The result is complex, with the real part being the filtered image
+    return np.real(filtered_images)
 
 # copy from cryoDRGN
 def compute_ctf_np(freqs, dfu, dfv, dfang, volt, cs, w, phase_shift=0, bfactor=None, apix=1):

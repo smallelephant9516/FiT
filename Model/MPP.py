@@ -485,6 +485,7 @@ class MPP_vector(nn.Module):
         # add positional embeddings to input
         #masked_input += transformer.pos_embedding[:, :(n + 1)]
         #masked_input += transformer.pos_embedding_sincos(masked_input)
+        masked_input = masked_input + transformer.PEG(masked_input)
         #masked_input = transformer.pos_embedding_fre_shift(masked_input)
         masked_input = transformer.dropout(masked_input)
 

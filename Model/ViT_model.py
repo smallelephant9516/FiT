@@ -11,6 +11,7 @@ from einops.layers.torch import Rearrange
 
 from Data_loader.image_transformation import crop
 from Model.RoPE import RotaryEmbedding
+from Model.PEG import PositionalEmbeddingGenerator1D
 
 # helpers
 
@@ -100,7 +101,7 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
         self.mask=torch.ones((1))
-        self.rotary_emb = RotaryEmbedding(dim = 32, learned_freq=False)
+        self.rotary_emb = RotaryEmbedding(dim = 32, learned_freq=True)
 
     def forward(self, x):
 
@@ -339,6 +340,7 @@ class ViT_vector(nn.Module):
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.pos_embedding_sincos = posemb_sincos_1d
+        self.PEG = PositionalEmbeddingGenerator1D(dim,3,3,128)
         #learnable_shift_freq = SinusoidalPositionalEncoding(batch_size, dim, num_patches+1)
         #learnable_shift_freq.to('cuda:2')
         #self.pos_embedding_fre_shift = learnable_shift_freq
@@ -359,6 +361,7 @@ class ViT_vector(nn.Module):
         x = torch.cat((cls_tokens, x), dim=1)
         #x += self.pos_embedding[:, :(n + 1)]
         #x += self.pos_embedding_sincos(x)
+        x = x + self.PEG(x)
         #x = self.pos_embedding_fre_shift(x)
         x = self.dropout(x)
 

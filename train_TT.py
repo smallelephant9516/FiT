@@ -21,6 +21,8 @@ def add_args(parser):
     parser.add_argument('--dim', type=int, default=128, help='Dimension of latent variable')
     parser.add_argument('--max_len', type=int, default=0,
                         help='Number of segments in a filament, 0 means using the max length')
+    parser.add_argument('--device', type=int, default=0, help='gpu device number')
+
 
 
     group = parser.add_argument_group('Data loader parameters')
@@ -81,7 +83,7 @@ def main(args):
         print('load data from star file')
         print(defocus.shape)
 
-    device = torch.device('cuda:2' if torch.cuda.is_available() is True else 'cpu')
+    device = torch.device('cuda:{}'.format(args.device) if torch.cuda.is_available() is True else 'cpu')
 
     model = ViT(
         image_height = args.cylinder_mask,

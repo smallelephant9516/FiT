@@ -6,7 +6,7 @@ import torchvision.transforms as T
 from Data_loader import EMData
 from Data_loader.image_transformation import add_noise_SNR, normalize_all_image, padding, padding_vector, padding_lazy, inplane_rotate, normalize_image,defocus_filament
 from Data_loader.mrcs import LazyImage, parse_header
-from Data_loader.ctf_fuction import ctf_correction, low_pass_filter_images, ctf_correction_torch_pf
+from Data_loader.ctf_fuction import ctf_correction, low_pass_filter_images, low_pass_filter_numpy
 
 def image_preprocessing(images,defocus,psi_prior):
     if len(defocus.shape)==1:
@@ -172,7 +172,7 @@ class load_mrcs():
             # mode is first of phase flip or till first peak
             self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
             # apply low pass filter
-            self.all_data_image = low_pass_filter_images(self.all_data_image, 20, apix=Apix)
+            #self.all_data_image = low_pass_filter_numpy(self.all_data_image, 30, apix=Apix)
             #np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
 
         # circular normalization
