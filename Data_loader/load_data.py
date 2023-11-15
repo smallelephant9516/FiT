@@ -172,7 +172,7 @@ class load_mrcs():
             # mode is first of phase flip or till first peak
             self.all_data_image = ctf_correction(self.all_data_image, defocus, Apix, mode = 'phase flip')
             # apply low pass filter
-            #self.all_data_image = low_pass_filter_numpy(self.all_data_image, 30, apix=Apix)
+            self.all_data_image = low_pass_filter_numpy(self.all_data_image, 20, apix=Apix)
             #np.save(self.folder + 'after_correction_pf.npy', self.all_data_image[0])
 
         # circular normalization

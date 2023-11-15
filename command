@@ -100,4 +100,8 @@ python train_vector.py /home/jiang/li3221/scratch/practice-filament/10943-tau/Cl
 python train_2D.py /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/join_particles.star --cylinder_mask 128 --image_patch_size 16 -n 20 --ctf_path /home/jiang/li3221/scratch/practice-filament/10230-tau/JoinStar/job607/ctf.pkl
 python train_2D_original.py /home/jiang/li3221/scratch/simmicro/10340-tau/Noise/NoNoise_uneven2/join_particles.star -n 20 --simulation --cylinder_mask 224 --center_mask 224
 
+python /net/jiang/scratch/li3221/Github/FiT/train_TT.py ./run_it025_data.star --ctf_path ./ctf.pkl --cylinder_mask 32 --center_mask 96 --image_patch_size 16 -n 100
+python /net/jiang/scratch/li3221/Github/FiT/train_vector.py ./particles.star -n 100
+python /net/jiang/scratch/li3221/Github/FiT/train_vector.py ./particles.star -n 100 --loss cross_entropy --vector_cls_token cls
+python /net/jiang/scratch/li3221/Github/FiT/train_vector.py ./particles.star -n 1000 --loss cross_entropy --vector_cls_token cls
 
