@@ -1,21 +1,33 @@
 import numpy as np
+import torch
+import torchvision
+import torchvision.transforms.functional as TF
 import cv2
 
-def normalize_all_image(data, sigma = None):
-    n_img,n,m = data.shape
-    data_new = []
-    mean = data.mean()
-    std = data.std()
-    print('mean and std are',mean,std)
-    for i in range(n_img):
-        img = data[i]
-        img = (img - mean)/std
-        data_new.append(img)
-        if sigma is not None:
-            img[img > sigma] = sigma
-            img[img < -sigma] = -sigma
-    data_new = np.array(data_new)
-    return data_new
+def normalize_all_image(data, sigma = None, use_torch=False):
+
+    if use_torch is True:
+        n_img, n, m = data.shape
+        mean = torch.mean(data,dim=(1,2))
+        std = torch.std(data,dim=(1,2))
+        data = (data - mean) / std
+        data[data > sigma] = sigma
+        data[data < -sigma] = -sigma
+    else:
+        n_img,n,m = data.shape
+        data_new = []
+        mean = data.mean()
+        std = data.std()
+        print('mean and std are',mean,std)
+        for i in range(n_img):
+            img = data[i]
+            img = (img - mean)/std
+            data_new.append(img)
+            if sigma is not None:
+                img[img > sigma] = sigma
+                img[img < -sigma] = -sigma
+        data = np.array(data_new)
+    return data
 
 def norm_min_max(data):
     min = data.min()
@@ -213,27 +225,46 @@ def rotate_image(image, angle):
     result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_CUBIC)
     return result
 
+def rotate_batch(images, angles):
+    rotated_images = []
+    for i, image in enumerate(images):
+        image = image.unsqueeze(0).unsqueeze(0)
+        rotated_image = TF.rotate(img=image,angle=-float(angles[i]))
+        rotated_image = rotated_image.squeeze(0).squeeze(0)
+        rotated_images.append(rotated_image)
+    return torch.stack(rotated_images)
+
 
 #def rotate_image_torch(image, angle):
 #    transform = T.RandomRotation(degrees=(angle, angle))
 #    result = transform(image)
 #    return result
 
-def normalize_image(data,sigma=None):
+def normalize_image(data,sigma=None, use_torch=False):
     #print('normalizing the image')
     mask, background = get_circular_mask(data)
     data_new = np.zeros(np.shape(data))
-    for i in range(len(data)):
-        img = data[i]
-        background_value = img[background].flatten()
-        mean = background_value.mean()
-        std = background_value.std()
-        img[background] = 0
-        img[mask] = (img[mask]-mean)/std
-        if sigma is not None:
-            img[img > sigma] = 0
-            img[img < -sigma] = 0
-        data_new[i]=img
+    if use_torch is True:
+        n_pts = data[:,mask].shape[-1]
+        mean = torch.mean(data[:,background],dim=1).unsqueeze(1).expand(-1, n_pts)
+        std = torch.std(data[:,background],dim=1).unsqueeze(1).expand(-1, n_pts)
+        data[:, mask] = (data[:, mask] - mean) / std
+        data[:, background] = 0
+        data[data > sigma] = sigma
+        data[data < -sigma] = -sigma
+        data_new = data
+    else:
+        for i in range(len(data)):
+            img = data[i]
+            background_value = img[background].flatten()
+            mean = background_value.mean()
+            std = background_value.std()
+            img[background] = 0
+            img[mask] = (img[mask]-mean)/std
+            if sigma is not None:
+                img[img > sigma] = 0
+                img[img < -sigma] = 0
+            data_new[i]=img
     return data_new
 
 def normalize_filament(data,height,width,sigma=None):

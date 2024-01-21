@@ -35,7 +35,7 @@ def main(args):
             filament_umap_2D=np.load(dm_path)
         N2D = st.checkbox('not from 2D classification')
         # 2D class result tab
-        meta_path = st.text_input('2D class meta file', value=args.meta_path) # 'F:\Github/2Dclass2vec/data/run_it025_data.star'
+        meta_path = st.text_input('2D class meta file', value=args.meta_path)
         root_dir='/'.join(meta_path.split('/')[:-3])
         file_name=os.path.basename(meta_path)
         output_path=os.path.dirname(dm_path)+'/'+os.path.splitext(file_name)[0]

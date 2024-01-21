@@ -58,6 +58,14 @@ def get_circular_mask_single(data, R=None):
     mask = dist <= radius
     return mask
 
+def butterworth_lowpass_2d(shape, cutoff, order=2):
+    n, m = shape
+    X, Y = np.meshgrid(range(-m//2, m//2), range(-n//2, n//2))
+    D = np.sqrt(X**2 + Y**2)
+    H = 1 / (1 + (D / cutoff)**(2 * order))
+    return H
+
+
 def low_pass_filter(image, ang, apix=1):
     D, _ = np.shape(image)
     R_pix = int(np.ceil(D / (ang / 2 * apix)))
@@ -93,8 +101,10 @@ def low_pass_filter_torch(images: torch.Tensor, angstrom: float, apix: float):
     mask = radius <= (max_radius * cutoff_frequency_ratio)
     mask = mask.to(images.device)  # Ensure the mask is on the same device as images
 
+    butterworth_mask = butterworth_lowpass_2d((H, W), max_radius * cutoff_frequency_ratio)
+
     # Apply the mask to each image in the batch
-    filtered_fft_shift = fft_shift * mask.unsqueeze(0)
+    filtered_fft_shift = fft_shift * butterworth_mask.unsqueeze(0)
 
     # Inverse operations (shift and inverse Fourier transform)
     filtered_fft = torch.fft.ifftshift(filtered_fft_shift, dim=(-2, -1))
@@ -119,6 +129,7 @@ def low_pass_filter_numpy(images: np.ndarray, angstrom: float, apix: float) -> n
     fft_images = fft.fft2(images, axes=(-2, -1))
     fft_shift = fft.fftshift(fft_images, axes=(-2, -1))
 
+
     # Construct the low-pass filter (a circular mask)
     cy, cx = int(H/2), int(W/2)  # Center of the mask
     x = np.arange(W, dtype=np.float32).reshape(1, -1) - cx
@@ -128,8 +139,15 @@ def low_pass_filter_numpy(images: np.ndarray, angstrom: float, apix: float) -> n
     cutoff_frequency_ratio = 2 * apix / angstrom
     mask = radius <= (max_radius * cutoff_frequency_ratio)
 
+    # apply guassian mask
+    sigma = 100
+    gaussian_mask = np.exp(-((radius ** 2) / (2 * sigma ** 2)))
+    gaussian_mask[radius > (max_radius * cutoff_frequency_ratio)] = 0
+
+    butterworth_mask = butterworth_lowpass_2d((H, W), max_radius * cutoff_frequency_ratio)
+
     # Apply the mask to each image in the batch
-    filtered_fft_shift = fft_shift * mask
+    filtered_fft_shift = fft_shift * butterworth_mask
 
     # Inverse operations (shift and inverse Fourier transform)
     filtered_fft = fft.ifftshift(filtered_fft_shift, axes=(-2, -1))
@@ -371,10 +389,18 @@ def ctf_correction(all_data_image, defocus, Apix, mode='phase flip'):
         print('no valid mode is detected')
     return all_image_pf
 
-def low_pass_filter_images(images, ang, apix=1):
+def low_pass_filter_images(images, ang, apix=1, use_torch = False):
     #print('doing low pass filter on the images')
-    lowpass_images=np.zeros(images.shape)
-    for i in range(len(images)):
-        lowpass_images[i] = low_pass_filter(images[i],ang,apix)
+
+    if use_torch is True:
+        device = images.device
+        #lowpass_images=torch.zeros(images.shape,device=device)
+        #for i in range(len(images)):
+        #    lowpass_images[i] = low_pass_filter_torch(images[i], ang, apix)
+        lowpass_images = low_pass_filter_torch(images, ang, apix)
+    else:
+        lowpass_images = np.zeros(images.shape)
+        for i in range(len(images)):
+            lowpass_images[i] = low_pass_filter(images[i], ang, apix)
     return lowpass_images
 

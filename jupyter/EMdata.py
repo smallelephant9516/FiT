@@ -48,16 +48,83 @@ class read_relion(object):
         return Rvar, Rdata
 
 
+# the data is read_relion(sys.argv[1]).getRdata()
+class process_helical():
+    def __init__(self, dataset, classnumber=50):
+        self.metadata = dataset[0]
+        self.data = dataset[1]
+        self.classnumber = classnumber
+
+    def extarct_helical(self, label=None):
+        data = self.data
+        M = self.metadata.index('_rlnImageName')
+        H = self.metadata.index('_rlnHelicalTubeID')
+        if label is None:
+            C = self.metadata.index('_rlnClassNumber')
+        print('finish reading')
+        # extract helical parameters
+        helicaldic = {}
+        helicalnum = []
+        count = -1
+        label_id = 0
+        for particle in data:
+            ID = particle[M][7:] + '-' + str(particle[H])
+            if ID in helicalnum:
+                n = str(count)
+                lst = helicaldic[n]
+                if label is not None:
+                    lst.append(label[label_id])
+                    label_id += 1
+                else:
+                    lst.append(particle[C])
+                helicaldic[n] = lst
+            else:
+                helicalnum.append(ID)
+                n = str(helicalnum.index(ID))
+                count += 1
+                if label is not None:
+                    helicaldic[n] = [label[label_id]]
+                    label_id += 1
+                else:
+                    helicaldic[n] = [particle[C]]
+        print('finish converting')
+        #for i in range(10):
+        #    print(helicaldic[str(i)])
+        return helicaldic, helicalnum
+
+    def extarct_helical_select(self):
+        data = self.data
+        M = self.metadata.index('_rlnImageName')
+        H = self.metadata.index('_rlnHelicalTubeID')
+        C = self.metadata.index('_rlnClassNumber')
+        print('finish reading')
+        # extract helical parameters
+        helicaldic = {}
+        helicalnum = []
+        count = -1
+        dtype = [('class2D', int), ('place', int), ('index', int)]
+        for i, particle in enumerate(data):
+            ID = particle[M][7:] + '-' + str(particle[H])
+            if ID in helicalnum:
+                n = str(helicalnum.index(ID))
+                helicaldic[n].append((particle[C], particle[M][0:6], i))
+            else:
+                helicalnum.append(ID)
+                n = str(helicalnum.index(ID))
+                count += 1
+                helicaldic[n] = [(particle[C], particle[M][0:6], i)]
+        for i in range(len(helicaldic)):
+            lst = np.array(helicaldic[str(i)], dtype=dtype)
+            helicaldic[str(i)] = np.sort(lst, order='place')
+        print('finish converting')
+        # for i in range(5):
+        #    print(helicaldic[str(i)])
+        return helicaldic, helicalnum
+
 class read_data_df():
     def __init__(self, file):
         self.file = file
         self.start_time=dt.now()
-
-    def extractoptic(self):
-        optics = []
-        for star_line in open(self.file).readlines()[0:19]:
-            optics.append(star_line.split())
-        return optics
 
     def star2dataframe(self, relion31=True):
         Rvar = []  # read the variables metadata
@@ -93,13 +160,19 @@ class read_data_df():
         indices = indices.astype(int) - 1
         data["pid"] = indices
         data["filename"] = filenames
-        tmp = data["_rlnImageName"].str[7:21]
-        data["label"] = tmp.iloc[:]
-
+        #tmp = data["_rlnImageName"].str[7:21]
+        #data["label"] = tmp.iloc[:]
+        tmp = data["filename"].str.split("/", expand=True)
+        data["label"] = tmp.iloc[:,1]
+        
+        
         if "_rlnHelicalTubeID" in data:
             data.loc[:, "helicaltube"] = data["_rlnHelicalTubeID"].astype(int) - 1
         if "_rlnAnglePsiPrior" in data:
             data.loc[:, "phi0"] = data["_rlnAnglePsiPrior"].astype(float).round(3) - 90.0
+        
+        data['Filament_ID'] = data['filename'].astype(str) + '-' + data['helicaltube'].astype(str)
+        
         return data
 
     def extract_helical_select(self, dataframe):
@@ -122,7 +195,7 @@ class read_data_df():
             if i % 10000 == 0:
                 end_time = dt.now()
                 passed_time = (end_time - self.start_time)
-                print('%s The %s particles has been read,' % (passed_time, i))
+                #print('%s The %s particles has been read,' % (passed_time, i))
         for i in range(len(helicalnum)):
             lst = np.array(helicaldic[helicalnum[i]], dtype=dtype)
             helicaldic[helicalnum[i]] = np.sort(lst, order='place')
@@ -173,69 +246,6 @@ class read_data_df():
             new_corpus.append(lst[(cut_amount - 1) * cut_length:])
         print(len(new_corpus))
         return new_corpus, cut_index
-
-# the data is read_relion(sys.argv[1]).getRdata()
-class process_helical():
-    def __init__(self, dataset, classnumber=50):
-        self.metadata = dataset[0]
-        self.data = dataset[1]
-        self.classnumber = classnumber
-
-    def extarct_helical(self):
-        data = self.data
-        M = self.metadata.index('_rlnImageName')
-        H = self.metadata.index('_rlnHelicalTubeID')
-        C = self.metadata.index('_rlnClassNumber')
-        print('finish reading')
-        # extract helical parameters
-        helicaldic = {}
-        helicalnum = []
-        count = -1
-        for particle in data:
-            ID = particle[M][7:] + '-' + str(particle[H])
-            if ID in helicalnum:
-                n = str(count)
-                lst = helicaldic[n]
-                lst.append(particle[C])
-                helicaldic[n] = lst
-            else:
-                helicalnum.append(ID)
-                n = str(helicalnum.index(ID))
-                count += 1
-                helicaldic[n] = [particle[C]]
-        print('finish converting')
-        for i in range(10):
-            print(helicaldic[str(i)])
-        return helicaldic, helicalnum
-
-    def extarct_helical_select(self):
-        data = self.data
-        M = self.metadata.index('_rlnImageName')
-        H = self.metadata.index('_rlnHelicalTubeID')
-        C = self.metadata.index('_rlnClassNumber')
-        print('finish reading')
-        # extract helical parameters
-        helicaldic = {}
-        helicalnum = []
-        count = -1
-        dtype = [('class2D', int), ('place', int), ('index', int)]
-        for i, particle in enumerate(data):
-            ID = particle[M][7:] + '-' + str(particle[H])
-            if ID in helicalnum:
-                n = str(helicalnum.index(ID))
-                helicaldic[n].append((particle[C], particle[M][0:6], i))
-            else:
-                helicalnum.append(ID)
-                n = str(helicalnum.index(ID))
-                count += 1
-                helicaldic[n] = [(particle[C], particle[M][0:6], i)]
-        for i in range(len(helicaldic)):
-            lst = np.array(helicaldic[str(i)], dtype=dtype)
-            helicaldic[str(i)] = np.sort(lst, order='place')
-        print('finish converting')
-        for i in range(5):
-            print(helicaldic[str(i)])
-        return helicaldic, helicalnum
 
 
 class process_cryosparc_helical():
@@ -329,3 +339,6 @@ class output_star():
                 i += 1
                 # fullstr = ' '.join([str(elem) for elem in item ])
                 file.writelines("%s %s\n" % (item, '#{}'.format(i)))
+
+
+

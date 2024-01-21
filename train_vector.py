@@ -23,6 +23,7 @@ def add_args(parser):
     parser.add_argument('--max_len', type=int, default=0,
                         help='Number of segments in a filament, 0 means using the max length')
     parser.add_argument('--device', type=int, default=0, help='gpu device number')
+    parser.add_argument('--dr', action='store_true', help='use dimension reduction')
 
 
     group = parser.add_argument_group('Data loader parameters')
@@ -141,6 +142,16 @@ def main(args):
         save_dir = args.output
     else:
         save_dir = os.path.dirname(args.particles)
+
+    if args.dr is True:
+        import umap
+        reducer = umap.UMAP()
+        umap_2D = reducer.fit_transform(all_value_np)
+        filament_umap = umap_2D[:]
+        print(dt.now(), ' The output umap embedding')
+        np.save(save_dir + '/umap_vector_{}.npy'.format(epoch), all_value_np)
+
+
     print(dt.now(),' The output vector is saved to %s' % save_dir)
     np.save(save_dir+'/saved_vector_embedding_{}.npy'.format(epoch), all_value_np)
 
