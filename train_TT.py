@@ -109,6 +109,15 @@ def main(args):
         lossF=args.loss,
         inter_seg_distance= args.z_percent,
     )
+
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        params = parameter.numel()
+        total_params += params
+    print('total parameters are: ',total_params)
+
     mpp_trainer.to(device)
     opt = torch.optim.Adam(mpp_trainer.parameters(), lr=args.lr)
 

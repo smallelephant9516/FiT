@@ -149,7 +149,7 @@ def main(args):
         umap_2D = reducer.fit_transform(all_value_np)
         filament_umap = umap_2D[:]
         print(dt.now(), ' The output umap embedding')
-        np.save(save_dir + '/umap_vector_{}.npy'.format(epoch), all_value_np)
+        np.save(save_dir + '/umap_vector_{}.npy'.format(epoch), filament_umap)
 
 
     print(dt.now(),' The output vector is saved to %s' % save_dir)
