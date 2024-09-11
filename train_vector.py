@@ -30,6 +30,8 @@ def add_args(parser):
     group.add_argument("--datadir",help="Optionally provide path to input .mrcs if loading from a .star or .cs file")
     group.add_argument("--simulation",action='store_true', help="Use the simulation dataset or not")
     parser.add_argument('--vector_path', type=os.path.abspath, default=None, help='The path for the particle vector')
+    group.add_argument('--infer_device', type=str, default='cpu',
+                       help='the device for inference')
 
     group = parser.add_argument_group('Transformer parameters')
     group.add_argument('-n', '--num_epochs', type=int, default=50, help='Number of training epochs (default: %(default)s)')
@@ -40,6 +42,7 @@ def add_args(parser):
     group.add_argument('--ignore_padding_mask', action='store_true', help='not using the padding mask to mask the transformer')
     group.add_argument('--loss', type=str, default='l2_norm', help='loss function (l2_norm, l1_norm, cross_entropy)')
     group.add_argument('--vector_cls_token', type=str, default='average', help='The token usage for the vector transformer (cls, average)')
+
 
     group = parser.add_argument_group('Mask Patch parameter')
     group.add_argument('--mask_prob', type=float, default=0.15, help='probability of using token in masked prediction task')
@@ -115,13 +118,18 @@ def main(args):
             total_loss += loss.item() / (length)
         print(dt.now(),dt.now()-t1,'In iteration {}, the total loss is {:.5f}'.format(epoch, total_loss))
 
+
+    # inference through the vector
+    infer_device = args.infer_device
     data_output = DataLoader(all_data, batch_size=args.batch_size, shuffle=False)
     all_value_np = np.zeros((n_data, args.dim))
     output_mode='average'
+    model.to(infer_device)
+    n_filaments = 0
     for i, (index, batch, mask) in enumerate(data_output):
         #import image
-        image = batch.to(device)
-        mask = mask.to(device)
+        image = batch.to(infer_device)
+        mask = mask.to(infer_device)
         #generate mask
         model.matrix_mask(mask)
         # pass through the model
@@ -135,13 +143,24 @@ def main(args):
         elif output_mode =='cls':
             value = value_hidden[:, 0, :].detach().cpu().numpy()
         all_value_np[i*args.batch_size:(i+1)*args.batch_size,:] = value
+
+        n_filaments+=args.batch_size
+
+        if i % 10 ==0:
+            print(f'{n_filaments} filaments has been infered')
     print(all_value_np.shape)
 
 
     if args.output is not None:
         save_dir = args.output
     else:
-        save_dir = os.path.dirname(args.particles)
+        save_dir, _ = os.path.splitext(args.particles)
+        if not os.path.exists(save_dir):
+            # Create the folder, including any necessary intermediate folders
+            os.makedirs(save_dir)
+            print(f"Folder '{save_dir}' was created.")
+        else:
+            print(f"Folder '{save_dir}' already exists.")
 
     if args.dr is True:
         import umap

@@ -41,9 +41,12 @@ def get_clustered_data(df_particle,df_filament,selections):
         all_sort_classes.append(sort_classes)
     return all_df, all_sort_classes
 
-def save_pdf_embedding(file_path, umap_2D, index, average_images, all_sort_classes):
+def save_pdf_embedding(file_path, umap_2D, indexes, average_images, all_sort_classes):
     all_index = np.zeros(len(umap_2D))
-    all_index[index] = 1
+    for i in range(len(indexes)):
+        index = indexes[i]
+        id = i+1
+        all_index[index] = id
     with PdfPages(file_path) as pdf:
         plt.figure(figsize=(16, 16))
         ax1 = plt.subplot(2, 2, 1)
@@ -52,8 +55,17 @@ def save_pdf_embedding(file_path, umap_2D, index, average_images, all_sort_class
         ax4 = plt.subplot(2, 2, 4)
 
         sns.kdeplot(data=umap_2D, x='Dimension 1', y='Dimension 2', ax=ax1, fill=True, cmap='Blues')
-        ax2.scatter(umap_2D['Dimension 1'],umap_2D['Dimension 2'],c='blue',alpha=0.1)
-        ax3.scatter(umap_2D['Dimension 1'],umap_2D['Dimension 2'],c=all_index,alpha=0.1)
+        ax2.scatter(umap_2D['Dimension 1'],umap_2D['Dimension 2'],c='blue',alpha=0.1,s=5)
+
+        print(len(set(all_index)))
+        cmap = plt.cm.tab10
+        colors = cmap(np.linspace(0, 1, len(set(all_index))))
+        ax3.scatter(umap_2D['Dimension 1'],umap_2D['Dimension 2'],c=all_index,cmap=cmap,alpha=0.5,s=5)
+        handles, labels = [], []
+        for i, color in enumerate(colors):
+            handles.append(plt.Rectangle((0, 0), 1, 1, color=color))
+            labels.append(f"cluster {i+1}")
+        ax3.legend(handles, labels, title="Cluster index", loc='upper right')
         plt.tight_layout()
         pdf.savefig()  # saves the current figure into a pdf page
         plt.close()
@@ -71,7 +83,7 @@ def save_pdf_embedding(file_path, umap_2D, index, average_images, all_sort_class
                 col = j % 5
                 id = sorted_np[j]
                 axs[row, col].imshow(all_2D[int(id[0]) - 1], cmap='gray')
-                axs[row, col].set_title(id[0] + ' : ' + str(round(float(id[1]), 3)))
+                axs[row, col].set_title(id[0] + ' : ' + str(round(float(id[1]), 3))+'%')
             plt.tight_layout()
             pdf.savefig()  # saves the current figure into a pdf page
             plt.close()
@@ -318,7 +330,7 @@ class MainWindow(QMainWindow):
 
             all_df, all_sort_classes = get_clustered_data(self.particle_data, self.filament_table, self.kde_canvas.selections)
             save_pdf_embedding(file_name_pdf, self.kde_canvas.data,
-                               self.kde_canvas.selected_indices, self.average_image, all_sort_classes)
+                               self.kde_canvas.selections, self.average_image, all_sort_classes)
 
             optics = self.particle_data_class.extractoptic()
 

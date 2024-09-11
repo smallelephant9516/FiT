@@ -212,7 +212,7 @@ class load_vector():
         dataframe=filmanet_meta.star2dataframe()
         helicaldic, filament_id=filmanet_meta.extract_helical_select(dataframe)
         filament_index=filmanet_meta.filament_index(helicaldic)
-        max_len = max(map(len, filament_index))
+        #max_len = max(map(len, filament_index))
         if vector is None:
             class_list = np.array(dataframe['_rlnClassNumber']).astype('int')
             unique_class = list(np.unique(class_list))
@@ -226,7 +226,7 @@ class load_vector():
             print('use max length to cut the filament: %s' % max_len)
             self.max_len = max_len
         else:
-            self.max_len = max(map(len,self.filament_index))
+            self.max_len = max(map(len,filament_index))
             print('The max length is: %s' % self.max_len)
 
         assert len(vector) == len(dataframe)

@@ -377,7 +377,7 @@ class ViT_vector(nn.Module):
 
     def matrix_mask(self,mask):
         b,n=mask.shape
-        cls = torch.ones(b, 1).to(mask.get_device())
+        cls = torch.ones(b, 1).to(mask.device)
 
         mask = torch.cat((cls, mask), 1)
         self.mask_cls=mask
