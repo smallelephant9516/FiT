@@ -162,6 +162,9 @@ def main(args):
         else:
             print(f"Folder '{save_dir}' already exists.")
 
+    print(dt.now(), ' The output vector is saved to %s' % save_dir)
+    np.save(save_dir + '/saved_vector_embedding_{}.npy'.format(epoch), all_value_np)
+
     if args.dr is True:
         import umap
         reducer = umap.UMAP()
@@ -169,10 +172,6 @@ def main(args):
         filament_umap = umap_2D[:]
         print(dt.now(), ' The output umap embedding')
         np.save(save_dir + '/umap_vector_{}.npy'.format(epoch), filament_umap)
-
-
-    print(dt.now(),' The output vector is saved to %s' % save_dir)
-    np.save(save_dir+'/saved_vector_embedding_{}.npy'.format(epoch), all_value_np)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
