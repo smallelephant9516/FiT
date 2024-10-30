@@ -107,7 +107,7 @@ python /net/jiang/scratch/li3221/Github/FiT/train_vector.py ./particles.star -n 
 
 python /net/jiang/scratch/li3221/Github/FiT/GUI/final_gui.py
 
-python /net/jiang/scratch/li3221/Github/FiT/train_vector.py ./run_it020_data.star -n 200 --dr
+python /net/jiang/scratch/li3221/Github/FiT/train_vector.py ./run_it020_data.star -n 100 --dr
 cd ../type8
 python /net/jiang/scratch/li3221/Github/FiT/train_vector.py ./run_it020_data.star -n 200 --dr
 

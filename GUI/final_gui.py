@@ -64,7 +64,7 @@ def save_pdf_embedding(file_path, umap_2D, indexes, average_images, all_sort_cla
         handles, labels = [], []
         for i, color in enumerate(colors):
             handles.append(plt.Rectangle((0, 0), 1, 1, color=color))
-            labels.append(f"cluster {i+1}")
+            labels.append(f"cluster {i}")
         ax3.legend(handles, labels, title="Cluster index", loc='upper right')
         plt.tight_layout()
         pdf.savefig()  # saves the current figure into a pdf page
@@ -76,15 +76,18 @@ def save_pdf_embedding(file_path, umap_2D, indexes, average_images, all_sort_cla
             sorted_np = all_sort_classes[i]
             images_len = len(sorted_np)
             rows = int(np.ceil(images_len / 5))
+            print(rows)
+            if rows == 1:
+                rows = rows+1
             fig, axs = plt.subplots(rows, 5, figsize=(10, int(2 * rows)))
-            fig.suptitle(f'The plot for the cluster {i}')
             for j in range(images_len):
                 row = j // 5
                 col = j % 5
                 id = sorted_np[j]
                 axs[row, col].imshow(all_2D[int(id[0]) - 1], cmap='gray')
                 axs[row, col].set_title(id[0] + ' : ' + str(round(float(id[1]), 3))+'%')
-            plt.tight_layout()
+            fig.suptitle(f'The plot for the cluster {i + 1}')
+            plt.tight_layout(rect=[0, 0, 1, 0.96])
             pdf.savefig()  # saves the current figure into a pdf page
             plt.close()
 
